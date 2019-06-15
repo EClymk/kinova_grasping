@@ -20,7 +20,7 @@ from std_msgs.msg import Float32MultiArray
 bridge = CvBridge()
 
 # Load the Network.
-MODEL_FILE = 'PATH/TO/model.hdf5'
+MODEL_FILE = './epoch_100_model.hdf5'
 model = load_model(MODEL_FILE)
 
 rospy.init_node('ggcnn_detection')
@@ -200,9 +200,9 @@ def depth_callback(depth_message):
         cmd_msg.data = [x, y, z, ang, width, depth_center]
         cmd_pub.publish(cmd_msg)
 
-
+#   /camera/depth/image_rect_raw
 depth_sub = rospy.Subscriber('/camera/depth/image_meters', Image, depth_callback, queue_size=1)
-robot_pos_sub = rospy.Subscriber('/m1n6s200_driver/out/tool_pose', PoseStamped, robot_pos_callback, queue_size=1)
+robot_pos_sub = rospy.Subscriber('/j2s7s300_driver/out/tool_pose', PoseStamped, robot_pos_callback, queue_size=1)
 
 while not rospy.is_shutdown():
     rospy.spin()

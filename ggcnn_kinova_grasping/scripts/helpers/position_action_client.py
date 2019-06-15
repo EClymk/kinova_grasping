@@ -14,7 +14,7 @@ def move_to_position(position, orientation):
         init()
 
     goal = kinova_msgs.msg.ArmPoseGoal()
-    goal.pose.header = std_msgs.msg.Header(frame_id=('m1n6s200_link_base'))
+    goal.pose.header = std_msgs.msg.Header(frame_id=('j2s7s300_link_base'))
     goal.pose.pose.position = geometry_msgs.msg.Point(
         x=position[0], y=position[1], z=position[2])
     goal.pose.pose.orientation = geometry_msgs.msg.Quaternion(
@@ -29,7 +29,7 @@ def move_to_position(position, orientation):
         print('        the cartesian action timed-out')
         return None
 
-action_address = '/m1n6s200_driver/pose_action/tool_pose'
+action_address = '/j2s7s300_driver/pose_action/tool_pose'
 position_client = None
 
 def init():

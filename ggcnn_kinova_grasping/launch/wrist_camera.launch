@@ -3,7 +3,7 @@
   <arg name="camera"          default="camera" />
 
   <!-- Type of RealSense camera -->
-  <arg name="camera_type"     default="SR300" />
+  <arg name="camera_type"     default="D435" />
 
   <!-- "serial_no" or "usb_port_id" should be a unique identifier to connect to a device -->
   <arg name="serial_no"     default="" />
@@ -66,7 +66,7 @@
 
     <!-- Load driver -->
     <include if="$(arg load_driver)"
-             file="$(find realsense_camera)/launch/includes/nodelet_rgbd.launch.xml">
+             file="$(find realsense2_camera)/launch/includes/nodelet.launch.xml">
       <arg name="manager"                   value="$(arg manager)" />
       <arg name="camera"                    value="$(arg camera)" />
       <arg name="camera_type"               value="$(arg camera_type)" />
