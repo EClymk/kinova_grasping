@@ -29,15 +29,16 @@ from std_msgs.msg import Float32MultiArray
 from std_msgs.msg import String
 
 
+VELOCITY_CONTROL = 1            # when 0, position control; when 1, velocity control
+DATA_LENGTH = 300               # set the total data length
+POSE_FREQ = 1                   # the frequency of input
+
 bridge = CvBridge()
 
 x_v = 0
 y_v = 0
 z_v = 0
 
-VELOCITY_CONTROL = 1            # when 0, position control; when 1, velocity control
-DATA_LENGTH = 300               # set the total data length
-POSE_FREQ = 1                   # the frequency of input
 
 class IO(object):
     def __init__(self, file):
