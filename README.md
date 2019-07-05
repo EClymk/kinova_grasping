@@ -1,4 +1,4 @@
-# Otter Grasping with Kinova Mico
+# Otter Grasping with Kinova Jaco
 
 This repository contains a ROS package for running a simple test on a Kinova Jaco arm.  
 ## Paper
