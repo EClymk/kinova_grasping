@@ -35,14 +35,22 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 grandgrandparentdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(currentdir))))
 
 VELOCITY_CONTROL = 1            # when 0, position control; when 1, velocity control
-DATA_LENGTH = 50               # set the total data length
-POSE_FREQ = 1                   # the frequency of input
+DATA_LENGTH = 50              # set the total data length
+POSE_FREQ = 10                   # the frequency of input
+ROLLOUT_AMOUNT = 2          # set the number of rollout sets
 
 bridge = CvBridge()
 
 x_v = 0
 y_v = 0
 z_v = 0
+
+global i
+global j
+i = 1
+j = 1
+
+
 
 
 class IO(object):
@@ -64,6 +72,8 @@ class rollout_data:
     orientation = []
     joint_angle = []
     joint_velocity = []
+    action = []
+    cmd = []
 
 
 def move_home():
@@ -73,8 +83,9 @@ def move_home():
     # x_r = -0.03
     # y_r = -0.538
     # z_r = 0.375
-    x_r = -0.07
-    y_r = -0.546
+    # noinspection PyInterpreter
+    x_r = 0.09
+    y_r = -0.446
     z_r = 0.375
     # move_to_position([x_r,y_r,z_r], [0.072, 0.6902, -0.7172, 0.064])
     move_to_position([x_r, y_r, z_r], [0.708, -0.019, 0.037, 0.705])
@@ -86,16 +97,18 @@ def move_callback_velocity_control(data):
     global x_v
     global y_v
     global z_v
-    x_v = (data.data[0] - rollout_temp.pose[0])*POSE_FREQ
-    y_v = (data.data[1] - rollout_temp.pose[1])*POSE_FREQ
-    z_v = (data.data[2] - rollout_temp.pose[2])*POSE_FREQ
+    x_v = data.data[0]*POSE_FREQ
+    y_v = data.data[1]*POSE_FREQ
+    z_v = data.data[2]*POSE_FREQ
+    rollout_temp.action = data.data
+    rollout_temp.cmd = [x_v, y_v, z_v, 0, 0, 0]
     if rollout_temp.pose[0] > 0.2:
         x_v = -abs(x_v)
     elif rollout_temp.pose[0] < -0.1:
         x_v = abs(x_v)
-    if rollout_temp.pose[1] > -0.5:
+    if rollout_temp.pose[1] > -0.4:
         y_v = -abs(y_v)
-    elif rollout_temp.pose[1] < -0.8:
+    elif rollout_temp.pose[1] < -0.6:
         y_v = abs(y_v)
     if rollout_temp.pose[2] > 0.495:
         z_v = -abs(z_v)
@@ -150,23 +163,30 @@ def joint_callback(joint_data):
 
 
 def timer_callback(event):
-    rollout_observation_image.append(DIR+'/'+str(len(rollout_observation_torque))+'.jpg')
-    cv2.imwrite(DIR+'/'+str(len(rollout_observation_torque))+'.jpg', rollout_temp.image)
-    rollout_observation_torque.append(rollout_temp.torque)
-    rollout_observation_pose.append(rollout_temp.pose)
-    rollout_observation_orientation.append(rollout_temp.orientation)
-    rollout_observation_joint_angle.append(rollout_temp.joint_angle)
-    rollout_observation_joint_velocity.append(rollout_temp.joint_velocity)
-
+    global rollout_flag
+    global i
+    global j
+    if rollout_flag==1:
+        rollout_observation_image.append(DIR+'/'+str(len(rollout_observation_torque))+'.jpg')
+        cv2.imwrite(DIR+'/'+str(len(rollout_observation_torque)//50+1)+'_'+str(len(rollout_observation_torque)%50+1)+'.jpg', rollout_temp.image)
+        rollout_observation_torque.append(rollout_temp.torque)
+        rollout_observation_pose.append(rollout_temp.pose)
+        rollout_observation_orientation.append(rollout_temp.orientation)
+        rollout_observation_joint_angle.append(rollout_temp.joint_angle)
+        rollout_observation_joint_velocity.append(rollout_temp.joint_velocity)
+        rollout_observation_joint_action.append(rollout_temp.action)
+        rollout_observation_joint_cmd.append(rollout_temp.cmd)
 
 if __name__ == '__main__':
-    rollout_temp = rollout_data;
+    rollout_temp = rollout_data
     rollout_observation_image = []
     rollout_observation_torque = []
     rollout_observation_pose = []
     rollout_observation_orientation = []
     rollout_observation_joint_angle = []
     rollout_observation_joint_velocity = []
+    rollout_observation_joint_action = []
+    rollout_observation_joint_cmd = []
 
     rospy.init_node('kinova_velo_test')
     rospy.Subscriber('/camera/color/image_raw', Image, color_callback, queue_size=1)
@@ -189,28 +209,44 @@ if __name__ == '__main__':
     velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
     r = rospy.Rate(100)
 
-
     rospy.Timer(rospy.Duration(0.1),timer_callback)
     from helpers.transforms import current_robot_pose, publish_tf_quaterion_as_transform, convert_pose, publish_pose_as_transform
 
     start_force_srv = rospy.ServiceProxy('/j2s7s300_driver/in/start_force_control', kinova_msgs.srv.Start)
     stop_force_srv = rospy.ServiceProxy('/j2s7s300_driver/in/stop_force_control', kinova_msgs.srv.Stop)
 
+    rollout_flag = 0  # when 0, do not record, when 1, keep recording
+    while (len(rollout_observation_torque)<ROLLOUT_AMOUNT*DATA_LENGTH):
+        global rollout_flag
+        move_home()
+        time.sleep(0.5)
+        rollout_flag = 1
+        print('@')
+        print(len(rollout_observation_torque))
+        print(DATA_LENGTH)
+        if (len(rollout_observation_torque)%DATA_LENGTH)==0:
+            rollout_flag2 = 1
+            print('@#')
+        while((len(rollout_observation_torque)%DATA_LENGTH)!=0 or rollout_flag2==1):
+            if VELOCITY_CONTROL==1:
+                CURRENT_VELOCITY = [x_v, y_v, z_v, 0, 0, 0]
+                velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
+            r.sleep()
+            print(len(rollout_observation_torque))
+        rollout_flag2 = 0
+        rollout_flag = 0
+        print('!')
 
-    move_home()
-    while(len(rollout_observation_torque)<DATA_LENGTH):
-        if VELOCITY_CONTROL==1:
-            CURRENT_VELOCITY = [x_v, y_v, z_v, 0, 0, 0]
-            velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
-        r.sleep()
-
+    print("345")
     #rospy.Timer.shutdown()
-    rollout_observation = [rollout_observation_image,
-                           rollout_observation_torque,
-                           rollout_observation_pose,
-                           rollout_observation_orientation,
-                           rollout_observation_joint_angle,
-                           rollout_observation_joint_velocity
+    rollout_observation = [
+                           np.array(rollout_observation_joint_action),
+                           np.array(rollout_observation_joint_cmd),
+                           np.array(rollout_observation_torque),
+                           np.array(rollout_observation_pose),
+                           np.array(rollout_observation_orientation),
+                           np.array(rollout_observation_joint_angle),
+                           np.array(rollout_observation_joint_velocity)
                            ]
     dataIO = IO(DIR+'/data.pkl')
     dataIO.to_pickle(rollout_observation)

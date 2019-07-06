@@ -5,18 +5,18 @@ import rospy
 from std_msgs.msg import Float32MultiArray
 import random
 
-x_r = -0.03
-y_r = -0.538
+x_r = -0.09
+y_r = -0.446
 z_r = 0.375
 
 position_target_pub = rospy.Publisher('/target_goal', Float32MultiArray, queue_size=1)
 rospy.init_node('kinova_random_publisher')
-r = rospy.Rate(1)
+r = rospy.Rate(10)
 
 def feed_rand():
-    x_r_feed = random.uniform(-0.04, 0.04)
-    y_r_feed = random.uniform(-0.04, 0.04)
-    z_r_feed = random.uniform(-0.04, 0.04)
+    x_r_feed = random.uniform(-0.004, 0.004)
+    y_r_feed = random.uniform(-0.004, 0.004)
+    z_r_feed = random.uniform(-0.004, 0.004)
     return x_r_feed, y_r_feed, z_r_feed
 
 
@@ -33,16 +33,16 @@ def move_rand():
         x_r = -0.1
     # y_r = -0.638+random.uniform(-0.05, 0.05)
     y_r = y_r+y_r_feed
-    if y_r > -0.5:
-        y_r = -0.5
-    elif y_r < -0.8:
-        y_r = -0.8
+    if y_r > -0.4:
+        y_r = -0.4
+    elif y_r < -0.7:
+        y_r = -0.7
     # z_r = 0.395+random.uniform(0, 0.1)
     z_r = z_r+z_r_feed
-    if z_r > 0.495:
-        z_r = 0.495
-    elif z_r < 0.435:
-        z_r = 0.435
+    if z_r > 0.45:
+        z_r = 0.45
+    elif z_r < 0.38:
+        z_r = 0.38
     # x_r = 0
     # y_r = -0.6
     # z_r = 0.45
@@ -73,7 +73,7 @@ def move_rand():
 #     return x_v, _v, z_v
 while not rospy.is_shutdown():
     cmd_msg = Float32MultiArray()
-    x, y, z = move_rand()
+    x, y, z = feed_rand()
     print(x,y,z)
     cmd_msg.data = [x, y, z, 0, 0, 0]
     position_target_pub.publish(cmd_msg)
