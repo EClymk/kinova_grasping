@@ -232,8 +232,9 @@ if __name__ == '__main__':
                 CURRENT_VELOCITY = [x_v, y_v, z_v, 0, 0, 0]
                 velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
             r.sleep()
+            if (len(rollout_observation_torque)%DATA_LENGTH)!=0:
+                rollout_flag2 = 0
             print(len(rollout_observation_torque))
-        rollout_flag2 = 0
         rollout_flag = 0
         print('!')
 
