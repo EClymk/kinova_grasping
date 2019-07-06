@@ -238,7 +238,6 @@ if __name__ == '__main__':
         rollout_flag = 0
         print('!')
 
-    print("345")
     #rospy.Timer.shutdown()
     rollout_observation = [
                            np.array(rollout_observation_joint_action),
