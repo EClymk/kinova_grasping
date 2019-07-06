@@ -28,6 +28,11 @@ from sensor_msgs.msg import Image, CameraInfo
 from std_msgs.msg import Float32MultiArray
 from std_msgs.msg import String
 
+import inspect
+
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+grandgrandparentdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(currentdir))))
 
 VELOCITY_CONTROL = 1            # when 0, position control; when 1, velocity control
 DATA_LENGTH = 50               # set the total data length
@@ -65,10 +70,14 @@ def move_home():
     global x_r
     global y_r
     global z_r
-    x_r = -0.03
-    y_r = -0.538
+    # x_r = -0.03
+    # y_r = -0.538
+    # z_r = 0.375
+    x_r = -0.07
+    y_r = -0.546
     z_r = 0.375
-    move_to_position([x_r,y_r,z_r], [0.072, 0.6902, -0.7172, 0.064])
+    # move_to_position([x_r,y_r,z_r], [0.072, 0.6902, -0.7172, 0.064])
+    move_to_position([x_r, y_r, z_r], [0.708, -0.019, 0.037, 0.705])
     time.sleep(0)
 
 
@@ -98,10 +107,17 @@ def move_callback_velocity_control(data):
 
 def move_callback_position_control(data):
     disp = [data.data[0], data.data[1], data.data[2]]
-    move_to_position(disp,[0.072, 0.6902, -0.7172, 0.064])          # now it's a specified orientation
+    # move_to_position(disp,[0.072, 0.6902, -0.7172, 0.064])          # now it's a specified orientation
+    move_to_position(disp, [0.708, -0.019, 0.037, 0.705])  # now it's a specified orientation
 
 def color_callback(color_data):
-    rollout_temp.image = bridge.imgmsg_to_cv2(color_data,'bgr8')
+
+    original_image = bridge.imgmsg_to_cv2(color_data,'bgr8')
+
+    # Crop a square out of the middle of the depth and resize it to 300*300
+    crop_size = 480
+    rollout_temp.image = cv2.resize(original_image[(480 - crop_size) // 2:(480 - crop_size) // 2 + crop_size,
+                            (640 - crop_size) // 2:(640 - crop_size) // 2 + crop_size], (480, 480))
 
 
 def torque_callback(torque_data):
@@ -163,9 +179,9 @@ if __name__ == '__main__':
         rospy.Subscriber('/target_goal', Float32MultiArray, move_callback_position_control, queue_size=1)
 
     # DIR1 = "saved_data/"
-    DIR1 = ''
+    DIR1 = grandgrandparentdir
     DIR2 = str(rospy.get_time())
-    DIR = DIR1+DIR2
+    DIR = DIR1+'/data/'+DIR2
     os.makedirs(DIR, mode=0o777)
 
     velo_pub = rospy.Publisher('/j2s7s300_driver/in/cartesian_velocity', kinova_msgs.msg.PoseVelocity, queue_size=1)

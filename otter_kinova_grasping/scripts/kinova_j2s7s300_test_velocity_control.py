@@ -219,6 +219,7 @@ if __name__ == '__main__':
 
     move_home()
     # while 1:
+	# pass
     for i in range(0, 1000):
         # x_v,y_v,z_v = move_rand()
         CURRENT_VELOCITY = [x_v,y_v,z_v,0,0,0]
