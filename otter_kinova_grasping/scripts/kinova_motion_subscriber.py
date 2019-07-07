@@ -18,6 +18,7 @@ from cv_bridge import CvBridge, CvBridgeError
 
 from helpers.gripper_action_client import set_finger_positions
 from helpers.position_action_client import position_client, move_to_position
+from helpers.joints_action_client import joint_angle_client
 from helpers.covariance import generate_cartesian_covariance
 
 import os
@@ -37,14 +38,16 @@ grandgrandparentdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.di
 VELOCITY_CONTROL = 1            # when 0, position control; when 1, velocity control
 DATA_LENGTH = 50              # set the total data length
 POSE_FREQ = 10                   # the frequency of input
-ROLLOUT_AMOUNT = 2          # set the number of rollout sets
-K = 0.004                    # coefficient of input to motion
-
+ROLLOUT_AMOUNT = 5         # set the number of rollout sets
+K = 0.02                   # coefficient of input to motion
+target_position = (0, -0.5, 0.4)
 bridge = CvBridge()
+MOVING = True               # when false, this program is to be shut down
 
 x_v = 0
 y_v = 0
 z_v = 0
+temp_angles = []
 
 global i
 global j
@@ -73,22 +76,37 @@ class rollout_data:
     joint_velocity = [0,0,0,0,0,0,0]
     action = []
     cmd = []
+    reward = []
+
+
+def robot_wrench_callback(msg):
+    global MOVING
+    if abs(msg.wrench.force.x) > 5.0 or abs(msg.wrench.force.y) > 5.0 or abs(msg.wrench.force.z) > 7.0:
+        rospy.logerr('Force Detected. Stopping.')
+        MOVING = False
+        print(temp_angles)
+        if temp_angles!=[]:
+                joint_angle_client([temp_angles.joint1, temp_angles.joint2, temp_angles.joint3, temp_angles.joint4,
+                                   temp_angles.joint5, temp_angles.joint6, temp_angles.joint7])
+
 
 
 def move_home():
-    global x_r
-    global y_r
-    global z_r
-    # x_r = -0.03
-    # y_r = -0.538
+    joint_angle_client([-99.7641525269, 195.045898438, 344.820983887, 32.5195426941, 155.874420166, 254.035217285, 366.375701904])              # should be in absolute degree
+    time.sleep(0.5)
+    # global x_r                         # using position control, however, may result in different pose
+    # global y_r
+    # global z_r
+    # # x_r = -0.03
+    # # y_r = -0.538
+    # # z_r = 0.375
+    # # noinspection PyInterpreter
+    # x_r = 0.09
+    # y_r = -0.446
     # z_r = 0.375
-    # noinspection PyInterpreter
-    x_r = 0.09
-    y_r = -0.446
-    z_r = 0.375
-    # move_to_position([x_r,y_r,z_r], [0.072, 0.6902, -0.7172, 0.064])
-    move_to_position([x_r, y_r, z_r], [0.708, -0.019, 0.037, 0.705])
-    time.sleep(0)
+    # # move_to_position([x_r,y_r,z_r], [0.072, 0.6902, -0.7172, 0.064])
+    # move_to_position([x_r, y_r, z_r], [0.708, -0.019, 0.037, 0.705])
+    # time.sleep(0)
 
 
 def move_callback_velocity_control(data):
@@ -107,11 +125,11 @@ def move_callback_velocity_control(data):
         x_v = abs(x_v)
     if rollout_temp.pose[1] > -0.4:
         y_v = -abs(y_v)
-    elif rollout_temp.pose[1] < -0.6:
+    elif rollout_temp.pose[1] < -0.7:
         y_v = abs(y_v)
-    if rollout_temp.pose[2] > 0.495:
+    if rollout_temp.pose[2] > 0.465:
         z_v = -abs(z_v)
-    elif rollout_temp.pose[2] < 0.435:
+    elif rollout_temp.pose[2] < 0.365:
         z_v = abs(z_v)
     return x_v, y_v, z_v
     # move_to_position(disp,[0.072, 0.6902, -0.7172, 0.064])
@@ -131,6 +149,10 @@ def color_callback(color_data):
     rollout_temp.image = cv2.resize(original_image[(480 - crop_size) // 2:(480 - crop_size) // 2 + crop_size,
                             (640 - crop_size) // 2:(640 - crop_size) // 2 + crop_size], (480, 480))
 
+
+def jointangle_callback(data):
+    global temp_angles
+    temp_angles = data
 
 def torque_callback(torque_data):
     rollout_temp.torque = [torque_data.joint1,
@@ -161,6 +183,11 @@ def joint_callback(joint_data):
     rollout_temp.joint_velocity = list(joint_data.velocity)
 
 
+def reward(target_position, current_position):
+    pose_data = -np.square(np.array(target_position)-np.array(current_position))
+    return pose_data
+
+
 def timer_callback(event):
     global rollout_flag
     global i
@@ -173,8 +200,9 @@ def timer_callback(event):
         rollout_observation_orientation.append(rollout_temp.orientation)
         rollout_observation_joint_angle.append(rollout_temp.joint_angle)
         rollout_observation_joint_velocity.append(rollout_temp.joint_velocity)
-        rollout_observation_joint_action.append(rollout_temp.action)
-        rollout_observation_joint_cmd.append(rollout_temp.cmd)
+        rollout_observation_action.append(rollout_temp.action)
+        rollout_observation_cmd.append(rollout_temp.cmd)
+        rollout_observation_reward.append(reward(target_position,rollout_temp.pose))
 
 if __name__ == '__main__':
     rollout_temp = rollout_data
@@ -184,14 +212,18 @@ if __name__ == '__main__':
     rollout_observation_orientation = []
     rollout_observation_joint_angle = []
     rollout_observation_joint_velocity = []
-    rollout_observation_joint_action = []
-    rollout_observation_joint_cmd = []
+    rollout_observation_action = []
+    rollout_observation_cmd = []
+    rollout_observation_reward = []
 
     rospy.init_node('kinova_velo_test')
+    rospy.Subscriber('/j2s7s300_driver/out/tool_wrench', geometry_msgs.msg.WrenchStamped, robot_wrench_callback,
+                     queue_size=1)
     rospy.Subscriber('/camera/color/image_raw', Image, color_callback, queue_size=1)
     rospy.Subscriber('/j2s7s300_driver/out/joint_torques', kinova_msgs.msg.JointTorque, torque_callback, queue_size=1)
     rospy.Subscriber('/j2s7s300_driver/out/tool_pose', geometry_msgs.msg.PoseStamped, pose_callback, queue_size=1)
-    rospy.Subscriber('/j2s7s300_driver/out/joint_state',sensor_msgs.msg.JointState,joint_callback, queue_size=1)
+    rospy.Subscriber('/j2s7s300_driver/out/joint_state', sensor_msgs.msg.JointState, joint_callback, queue_size=1)
+    rospy.Subscriber('/j2s7s300_driver/out/joint_angles', kinova_msgs.msg.JointAngles, jointangle_callback, queue_size=1)
     if VELOCITY_CONTROL==1:
         rospy.Subscriber('/target_goal', Float32MultiArray, move_callback_velocity_control, queue_size=1)
     else:
@@ -213,15 +245,15 @@ if __name__ == '__main__':
 
     start_force_srv = rospy.ServiceProxy('/j2s7s300_driver/in/start_force_control', kinova_msgs.srv.Start)
     stop_force_srv = rospy.ServiceProxy('/j2s7s300_driver/in/stop_force_control', kinova_msgs.srv.Stop)
-
+    rollout_flag = 0
     rollout_flag = 0  # when 0, do not record, when 1, keep recording
-    while (len(rollout_observation_torque)<ROLLOUT_AMOUNT*DATA_LENGTH):
+    while (len(rollout_observation_torque)<ROLLOUT_AMOUNT*DATA_LENGTH) & MOVING:
         move_home()
         time.sleep(3)
         rollout_flag = 1
-        if (len(rollout_observation_torque)%DATA_LENGTH)==0:
+        if (len(rollout_observation_torque)%DATA_LENGTH)==0 & MOVING:
             rollout_flag2 = 1
-        while((len(rollout_observation_torque)%DATA_LENGTH)!=0 or rollout_flag2==1):
+        while((len(rollout_observation_torque)%DATA_LENGTH)!=0 or rollout_flag2==1) & MOVING:
             if VELOCITY_CONTROL==1:
                 CURRENT_VELOCITY = [x_v, y_v, z_v, 0, 0, 0]
                 velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
@@ -231,10 +263,12 @@ if __name__ == '__main__':
         rollout_flag = 0
 
 
+
     #rospy.Timer.shutdown()
     rollout_observation = [
-                           np.array(rollout_observation_joint_action).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,6)),
-                           np.array(rollout_observation_joint_cmd).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,6)),
+                           np.array(rollout_observation_action).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,3)),
+                           np.array(rollout_observation_cmd).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,6)),
+                           np.array(rollout_observation_reward).reshape((ROLLOUT_AMOUNT, DATA_LENGTH, 3)),
                            np.array(rollout_observation_torque).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,7)),
                            np.array(rollout_observation_pose).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,3)),
                            np.array(rollout_observation_orientation).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,4)),

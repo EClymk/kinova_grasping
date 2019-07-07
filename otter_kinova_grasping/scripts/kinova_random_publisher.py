@@ -75,6 +75,6 @@ while not rospy.is_shutdown():
     cmd_msg = Float32MultiArray()
     x, y, z = feed_rand()
     print(x,y,z)
-    cmd_msg.data = [x, y, z, 0, 0, 0]
+    cmd_msg.data = [x, y, z]
     position_target_pub.publish(cmd_msg)
     r.sleep()

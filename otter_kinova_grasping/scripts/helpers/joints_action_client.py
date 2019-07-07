@@ -24,11 +24,10 @@ currentJointCommand = [] # number of joints is defined in __main__
 
 def joint_angle_client(angle_set):
     """Send a joint angle goal to the action server."""
-    action_address = '/' + prefix + 'driver/joints_action/joint_angles'
+    action_address = '/' + prefix + '_driver/joints_action/joint_angles'
     client = actionlib.SimpleActionClient(action_address,
                                           kinova_msgs.msg.ArmJointAnglesAction)
     client.wait_for_server()
-
     goal = kinova_msgs.msg.ArmJointAnglesGoal()
 
     goal.angles.joint1 = angle_set[0]
