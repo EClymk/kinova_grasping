@@ -14,9 +14,9 @@ rospy.init_node('kinova_random_publisher')
 r = rospy.Rate(10)
 
 def feed_rand():
-    x_r_feed = random.uniform(-0.004, 0.004)
-    y_r_feed = random.uniform(-0.004, 0.004)
-    z_r_feed = random.uniform(-0.004, 0.004)
+    x_r_feed = random.uniform(-1, 1)
+    y_r_feed = random.uniform(-1, 1)
+    z_r_feed = random.uniform(-1, 1)
     return x_r_feed, y_r_feed, z_r_feed
 
 

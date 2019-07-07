@@ -38,6 +38,7 @@ VELOCITY_CONTROL = 1            # when 0, position control; when 1, velocity con
 DATA_LENGTH = 50              # set the total data length
 POSE_FREQ = 10                   # the frequency of input
 ROLLOUT_AMOUNT = 2          # set the number of rollout sets
+K = 0.004                    # coefficient of input to motion
 
 bridge = CvBridge()
 
@@ -49,8 +50,6 @@ global i
 global j
 i = 1
 j = 1
-
-
 
 
 class IO(object):
@@ -67,11 +66,11 @@ class IO(object):
 
 class rollout_data:
     image = []
-    torque = []
-    pose = []
-    orientation = []
-    joint_angle = []
-    joint_velocity = []
+    torque = [0,0,0,0,0,0,0]
+    pose = [0,0,0]
+    orientation = [0,0,0]
+    joint_angle = [0,0,0,0,0,0,0]
+    joint_velocity = [0,0,0,0,0,0,0]
     action = []
     cmd = []
 
@@ -97,9 +96,9 @@ def move_callback_velocity_control(data):
     global x_v
     global y_v
     global z_v
-    x_v = data.data[0]*POSE_FREQ
-    y_v = data.data[1]*POSE_FREQ
-    z_v = data.data[2]*POSE_FREQ
+    x_v = data.data[0]*POSE_FREQ*K
+    y_v = data.data[1]*POSE_FREQ*K
+    z_v = data.data[2]*POSE_FREQ*K
     rollout_temp.action = data.data
     rollout_temp.cmd = [x_v, y_v, z_v, 0, 0, 0]
     if rollout_temp.pose[0] > 0.2:
@@ -217,16 +216,11 @@ if __name__ == '__main__':
 
     rollout_flag = 0  # when 0, do not record, when 1, keep recording
     while (len(rollout_observation_torque)<ROLLOUT_AMOUNT*DATA_LENGTH):
-        global rollout_flag
         move_home()
-        time.sleep(0.5)
+        time.sleep(3)
         rollout_flag = 1
-        print('@')
-        print(len(rollout_observation_torque))
-        print(DATA_LENGTH)
         if (len(rollout_observation_torque)%DATA_LENGTH)==0:
             rollout_flag2 = 1
-            print('@#')
         while((len(rollout_observation_torque)%DATA_LENGTH)!=0 or rollout_flag2==1):
             if VELOCITY_CONTROL==1:
                 CURRENT_VELOCITY = [x_v, y_v, z_v, 0, 0, 0]
@@ -234,19 +228,18 @@ if __name__ == '__main__':
             r.sleep()
             if (len(rollout_observation_torque)%DATA_LENGTH)!=0:
                 rollout_flag2 = 0
-            print(len(rollout_observation_torque))
         rollout_flag = 0
-        print('!')
+
 
     #rospy.Timer.shutdown()
     rollout_observation = [
-                           np.array(rollout_observation_joint_action),
-                           np.array(rollout_observation_joint_cmd),
-                           np.array(rollout_observation_torque),
-                           np.array(rollout_observation_pose),
-                           np.array(rollout_observation_orientation),
-                           np.array(rollout_observation_joint_angle),
-                           np.array(rollout_observation_joint_velocity)
+                           np.array(rollout_observation_joint_action).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,6)),
+                           np.array(rollout_observation_joint_cmd).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,6)),
+                           np.array(rollout_observation_torque).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,7)),
+                           np.array(rollout_observation_pose).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,3)),
+                           np.array(rollout_observation_orientation).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,4)),
+                           np.array(rollout_observation_joint_angle).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,10)),
+                           np.array(rollout_observation_joint_velocity).reshape((ROLLOUT_AMOUNT,DATA_LENGTH,10))
                            ]
     dataIO = IO(DIR+'/data.pkl')
     dataIO.to_pickle(rollout_observation)
