@@ -48,6 +48,7 @@ x_v = 0
 y_v = 0
 z_v = 0
 temp_angles = []
+home_angles = []
 
 global i
 global j
@@ -84,29 +85,36 @@ def robot_wrench_callback(msg):
     if abs(msg.wrench.force.x) > 5.0 or abs(msg.wrench.force.y) > 5.0 or abs(msg.wrench.force.z) > 7.0:
         rospy.logerr('Force Detected. Stopping.')
         MOVING = False
+        print(msg.wrench)
         print(temp_angles)
         if temp_angles!=[]:
                 joint_angle_client([temp_angles.joint1, temp_angles.joint2, temp_angles.joint3, temp_angles.joint4,
                                    temp_angles.joint5, temp_angles.joint6, temp_angles.joint7])
+                rospy.ServiceProxy('/j2s7s300_driver/in/start_force_control', kinova_msgs.srv.Start)
+
 
 
 
 def move_home():
-    joint_angle_client([-99.7641525269, 195.045898438, 344.820983887, 32.5195426941, 155.874420166, 254.035217285, 366.375701904])              # should be in absolute degree
+    joint_angle_client([home_angles.joint1, home_angles.joint2, home_angles.joint3, home_angles.joint4,
+                                   home_angles.joint5, home_angles.joint6, home_angles.joint7])              # should be in absolute degree
     time.sleep(0.5)
-    # global x_r                         # using position control, however, may result in different pose
-    # global y_r
-    # global z_r
-    # # x_r = -0.03
-    # # y_r = -0.538
-    # # z_r = 0.375
-    # # noinspection PyInterpreter
-    # x_r = 0.09
-    # y_r = -0.446
+
+
+def move_home_init():
+    global x_r                         # using position control, however, may result in different pose
+    global y_r
+    global z_r
+    # x_r = -0.03
+    # y_r = -0.538
     # z_r = 0.375
-    # # move_to_position([x_r,y_r,z_r], [0.072, 0.6902, -0.7172, 0.064])
-    # move_to_position([x_r, y_r, z_r], [0.708, -0.019, 0.037, 0.705])
-    # time.sleep(0)
+    # noinspection PyInterpreter
+    x_r = 0.09
+    y_r = -0.446
+    z_r = 0.375
+    # move_to_position([x_r,y_r,z_r], [0.072, 0.6902, -0.7172, 0.064])
+    move_to_position([x_r, y_r, z_r], [0.708, -0.019, 0.037, 0.705])
+    time.sleep(0)
 
 
 def move_callback_velocity_control(data):
@@ -194,7 +202,7 @@ def timer_callback(event):
     global j
     if rollout_flag==1:
         rollout_observation_image.append(DIR+'/'+str(len(rollout_observation_torque))+'.jpg')
-        cv2.imwrite(DIR+'/'+str(len(rollout_observation_torque)//50+1)+'_'+str(len(rollout_observation_torque)%50+1)+'.jpg', rollout_temp.image)
+        cv2.imwrite(DIR+'/'+str(len(rollout_observation_torque)//50+1)+'_'+str(len(rollout_observation_torque)%50+1)+'.jpg',rollout_temp.image)
         rollout_observation_torque.append(rollout_temp.torque)
         rollout_observation_pose.append(rollout_temp.pose)
         rollout_observation_orientation.append(rollout_temp.orientation)
@@ -247,9 +255,12 @@ if __name__ == '__main__':
     stop_force_srv = rospy.ServiceProxy('/j2s7s300_driver/in/stop_force_control', kinova_msgs.srv.Stop)
     rollout_flag = 0
     rollout_flag = 0  # when 0, do not record, when 1, keep recording
+    move_home_init()
+    home_angles = temp_angles
+    time.sleep(2)
     while (len(rollout_observation_torque)<ROLLOUT_AMOUNT*DATA_LENGTH) & MOVING:
         move_home()
-        time.sleep(3)
+        time.sleep(2)
         rollout_flag = 1
         if (len(rollout_observation_torque)%DATA_LENGTH)==0 & MOVING:
             rollout_flag2 = 1
@@ -261,8 +272,9 @@ if __name__ == '__main__':
             if (len(rollout_observation_torque)%DATA_LENGTH)!=0:
                 rollout_flag2 = 0
         rollout_flag = 0
+        move_home()
 
-
+    time.sleep(3)
 
     #rospy.Timer.shutdown()
     rollout_observation = [
