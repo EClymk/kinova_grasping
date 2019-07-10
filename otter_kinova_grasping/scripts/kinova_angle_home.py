@@ -61,6 +61,80 @@ def jointangle_callback(data):
     temp_angles = data
 
 
+def return_home_angle():
+    home_srv = rospy.ServiceProxy('/j2s7s300_driver/in/home_arm', kinova_msgs.srv.HomeArm)
+    home_srv()
+    time.sleep(0.2)
+    ini_angles = temp_angles
+    time.sleep(0.2)
+    big_angle_err = True
+    while big_angle_err:
+        while abs(temp_angles.joint1 - 283) > 10:
+            if temp_angles.joint1 > 283:
+                CURRENT_VELOCITY = [-30, 0, 0, 0, 0, 0, 0]
+                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
+                r.sleep()
+            if temp_angles.joint1 < 283:
+                CURRENT_VELOCITY = [30, 0, 0, 0, 0, 0, 0]
+                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
+                r.sleep()
+        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 0]
+        time.sleep(0.1)
+
+        while abs(temp_angles.joint3 - 0) > 10:
+            if temp_angles.joint3 > 0:
+                CURRENT_VELOCITY = [0, 0, -30, 0, 0, 0, 0]
+                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
+                r.sleep()
+            if temp_angles.joint3 < 0:
+                CURRENT_VELOCITY = [0, 0, 30, 0, 0, 0, 0]
+                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
+                r.sleep()
+        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 0]
+        time.sleep(0.1)
+
+        while abs(temp_angles.joint4 - 90) > 10:
+            if temp_angles.joint4 > 90:
+                CURRENT_VELOCITY = [0, 0, 0, -30, 0, 0, 0]
+                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
+                r.sleep()
+            if temp_angles.joint4 < 90:
+                CURRENT_VELOCITY = [0, 0, 0, 30, 0, 0, 0]
+                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
+                r.sleep()
+        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 0]
+        time.sleep(0.1)
+
+        while abs(temp_angles.joint5 - 265) > 10:
+            if temp_angles.joint5 > 265:
+                CURRENT_VELOCITY = [0, 0, 0, 0, -60, 0, 0]
+                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
+                r.sleep()
+            if temp_angles.joint5 < 265:
+                CURRENT_VELOCITY = [0, 0, 0, 0, 60, 0, 0]
+                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
+                r.sleep()
+        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 0]
+        time.sleep(0.1)
+
+        while abs(temp_angles.joint7 - 287) > 10:
+            if temp_angles.joint7 > 287:
+                CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, -60]
+                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
+                r.sleep()
+            if temp_angles.joint7 < 287:
+                CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 60]
+                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
+                r.sleep()
+        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 0]
+        time.sleep(0.1)
+
+        big_angle_err = False
+
+    home_srv()
+    time.sleep(0.1)
+
+
 if __name__ == '__main__':
 
     rospy.init_node('kinova_angle_home')
@@ -75,77 +149,8 @@ if __name__ == '__main__':
 
     start_force_srv = rospy.ServiceProxy('/j2s7s300_driver/in/start_force_control', kinova_msgs.srv.Start)
     stop_force_srv = rospy.ServiceProxy('/j2s7s300_driver/in/stop_force_control', kinova_msgs.srv.Stop)
-    home_srv = rospy.ServiceProxy('/j2s7s300_driver/in/home_arm', kinova_msgs.srv.HomeArm)
-    home_srv()
-    time.sleep(2)
-    ini_angles = temp_angles
-    time.sleep(2)
-    big_angle_err = True
-    while big_angle_err:
-        while abs(temp_angles.joint1-283)>10:
-            if temp_angles.joint1>283:
-                CURRENT_VELOCITY = [-30, 0, 0, 0, 0, 0, 0]
-                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
-                r.sleep()
-            if temp_angles.joint1<283:
-                CURRENT_VELOCITY = [30, 0, 0, 0, 0, 0, 0]
-                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
-                r.sleep()
-        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 0]
-        time.sleep(1)
 
-        while abs(temp_angles.joint3-0)>10:
-            if temp_angles.joint3>0:
-                CURRENT_VELOCITY = [0, 0, -30, 0, 0, 0, 0]
-                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
-                r.sleep()
-            if temp_angles.joint3<0:
-                CURRENT_VELOCITY = [0, 0, 30, 0, 0, 0, 0]
-                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
-                r.sleep()
-        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 0]
-        time.sleep(1)
-
-        while abs(temp_angles.joint4-90)>10:
-            if temp_angles.joint4>90:
-                CURRENT_VELOCITY = [0, 0, 0, -30, 0, 0, 0]
-                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
-                r.sleep()
-            if temp_angles.joint4<90:
-                CURRENT_VELOCITY = [0, 0, 0, 30, 0, 0, 0]
-                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
-                r.sleep()
-        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 0]
-        time.sleep(1)
-
-        while abs(temp_angles.joint5-265)>10:
-            if temp_angles.joint5>265:
-                CURRENT_VELOCITY = [0, 0, 0, 0, -60, 0, 0]
-                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
-                r.sleep()
-            if temp_angles.joint5<265:
-                CURRENT_VELOCITY = [0, 0, 0, 0, 60, 0, 0]
-                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
-                r.sleep()
-        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 0]
-        time.sleep(1)
-
-        while abs(temp_angles.joint7-287)>10:
-            if temp_angles.joint7>287:
-                CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, -60]
-                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
-                r.sleep()
-            if temp_angles.joint7<287:
-                CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 60]
-                velo_pub.publish(kinova_msgs.msg.JointVelocity(*CURRENT_VELOCITY))
-                r.sleep()
-        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0, 0]
-        time.sleep(1)
-
-        big_angle_err = False
-
-    home_srv()
-    time.sleep(1)
+    return_home_angle()
 
     # data = dataIO.read_pickle()
     # img = cv2.imread(str(data[0][0]))
