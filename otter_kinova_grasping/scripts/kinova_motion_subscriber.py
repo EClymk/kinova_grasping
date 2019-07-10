@@ -243,6 +243,7 @@ if __name__ == '__main__':
     DIR = DIR1+'/data/'+DIR2
     os.makedirs(DIR, mode=0o777)
 
+
     velo_pub = rospy.Publisher('/j2s7s300_driver/in/cartesian_velocity', kinova_msgs.msg.PoseVelocity, queue_size=1)
     CURRENT_VELOCITY = [0,0,0,0,0,0]
     velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
@@ -253,6 +254,14 @@ if __name__ == '__main__':
 
     start_force_srv = rospy.ServiceProxy('/j2s7s300_driver/in/start_force_control', kinova_msgs.srv.Start)
     stop_force_srv = rospy.ServiceProxy('/j2s7s300_driver/in/stop_force_control', kinova_msgs.srv.Stop)
+    time.sleep(1)
+    stop_srv = rospy.ServiceProxy('/j2s7s300_driver/in/start', kinova_msgs.srv.Start)
+    print('home')
+    home_srv = rospy.ServiceProxy('/j2s7s300_driver/in/home_arm', kinova_msgs.srv.HomeArm)
+    home_srv()
+    time.sleep(15)
+
+
     rollout_flag = 0
     rollout_flag = 0  # when 0, do not record, when 1, keep recording
     move_home_init()
