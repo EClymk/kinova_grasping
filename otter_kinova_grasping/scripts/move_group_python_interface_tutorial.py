@@ -234,8 +234,8 @@ class MoveGroupPythonIntefaceTutorial(object):
     pose_goal = geometry_msgs.msg.Pose()
     pose_goal.orientation.w = 1.0
     pose_goal.position.x = 0.2
-    pose_goal.position.y = -0.5
-    pose_goal.position.z = 0.6
+    pose_goal.position.y = -0.4
+    pose_goal.position.z = 0.4
 
     move_group.set_pose_target(pose_goal)
 
@@ -274,18 +274,51 @@ class MoveGroupPythonIntefaceTutorial(object):
     waypoints = []
 
     wpose = move_group.get_current_pose().pose
-    wpose.position.z -= scale * 0.1  # First move up (z)
-    wpose.position.y += scale * 0.2  # and sideways (y)
+    # wpose.position.z -= scale * 0.1  # First move up (z)
+    # wpose.position.y += scale * 0.2  # and sideways (y)
+    # waypoints.append(copy.deepcopy(wpose))
+    #
+    # wpose.position.x += scale * 0.1  # Second move forward/backwards in (x)
+    # waypoints.append(copy.deepcopy(wpose))
+    #
+    # wpose.position.y -= scale * 0.1  # Third move sideways (y)
+    # waypoints.append(copy.deepcopy(wpose))
+
+    wpose.orientation.w = 1.0  # Third move sideways (y)
+    waypoints.append(copy.deepcopy(wpose))
+    wpose.orientation.x = 0
+    wpose.orientation.y = 0.6
+    wpose.orientation.z = 0.8
+    wpose.orientation.w = 0.5  # Third move sideways (y)
+    waypoints.append(copy.deepcopy(wpose))
+    wpose.orientation.x = 0
+    wpose.orientation.y = 0.6
+    wpose.orientation.z = 0.8
+    wpose.orientation.w = 0.5  # Third move sideways (y)
+    waypoints.append(copy.deepcopy(wpose))
+    wpose.orientation.x = 0
+    wpose.orientation.y = 0.6
+    wpose.orientation.z = 0.8
+    wpose.orientation.w = 0.7  # Third move sideways (y)
+    waypoints.append(copy.deepcopy(wpose))
+    wpose.orientation.x = 0
+    wpose.orientation.y = 0.6
+    wpose.orientation.z = 0.8
+    wpose.orientation.w = 0.9  # Third move sideways (y)
+    waypoints.append(copy.deepcopy(wpose))
+    wpose.orientation.x = 0.8
+    wpose.orientation.y = 0.6
+    wpose.orientation.z = 0
+    wpose.orientation.w = 0.8  # Third move sideways (y)
     waypoints.append(copy.deepcopy(wpose))
 
-    wpose.position.x += scale * 0.1  # Second move forward/backwards in (x)
-    waypoints.append(copy.deepcopy(wpose))
 
-    wpose.position.y -= scale * 0.1  # Third move sideways (y)
-    waypoints.append(copy.deepcopy(wpose))
 
-    wpose.orientation.x -= 1.5  # Third move sideways (y)
-    waypoints.append(copy.deepcopy(wpose))
+
+
+
+
+
 
     # We want the Cartesian path to be interpolated at a resolution of 1 cm
     # which is why we will specify 0.01 as the eef_step in Cartesian
@@ -294,7 +327,7 @@ class MoveGroupPythonIntefaceTutorial(object):
     # for this tutorial.
     (plan, fraction) = move_group.compute_cartesian_path(
                                        waypoints,   # waypoints to follow
-                                       0.01,        # eef_step
+                                       0.001,        # eef_step
                                        0.0)         # jump_threshold
 
     # Note: We are just planning, not asking move_group to actually move the robot yet:
@@ -509,15 +542,15 @@ def main():
     #raw_input()
     #tutorial.go_to_joint_state()
 
-    print "============ Press `Enter` to execute a movement using a pose goal ..."
-    raw_input()
-    tutorial.go_to_pose_goal()
+    # print "============ Press `Enter` to execute a movement using a pose goal ..."
+    # raw_input()
+    # tutorial.go_to_pose_goal()
 
     print "============ Press `Enter` to execute a movement using a pose goal ..."
     raw_input()
     tutorial.go_to_pose_goal2()
 
-    '''print "============ Press `Enter` to plan and display a Cartesian path ..."
+    print "============ Press `Enter` to plan and display a Cartesian path ..."
     raw_input()
     cartesian_plan, fraction = tutorial.plan_cartesian_path()
 
@@ -527,7 +560,7 @@ def main():
 
     print "============ Press `Enter` to execute a saved path ..."
     raw_input()
-    tutorial.execute_plan(cartesian_plan)'''
+    tutorial.execute_plan(cartesian_plan)
 
     print "============ Press `Enter` to add a box to the planning scene ..."
     raw_input()
@@ -547,8 +580,8 @@ def main():
     tutorial.detach_box()
 
     print "============ Press `Enter` to remove the box from the planning scene ..."
-    raw_input()
-    tutorial.remove_box()'''
+    raw_input()'''
+    tutorial.remove_box()
 
     print "============ Python tutorial demo complete!"
   except rospy.ROSInterruptException:

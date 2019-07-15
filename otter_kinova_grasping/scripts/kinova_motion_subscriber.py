@@ -20,6 +20,7 @@ from helpers.gripper_action_client import set_finger_positions
 from helpers.position_action_client import position_client, move_to_position
 from helpers.joints_action_client import joint_angle_client
 from helpers.covariance import generate_cartesian_covariance
+import kinova_angle_home
 
 import os
 import time
@@ -144,7 +145,9 @@ def move_callback_velocity_control(data):
 
 
 def move_callback_position_control(data):
-    disp = [data.data[0], data.data[1], data.data[2]]
+    disp =  rollout_temp.pose
+    for i in len(rollout_temp.pose):
+        rollout_temp.pose[i] += data[i]*K
     # move_to_position(disp,[0.072, 0.6902, -0.7172, 0.064])          # now it's a specified orientation
     move_to_position(disp, [0.708, -0.019, 0.037, 0.705])  # now it's a specified orientation
 
@@ -161,6 +164,8 @@ def color_callback(color_data):
 def jointangle_callback(data):
     global temp_angles
     temp_angles = data
+    print('!!')
+
 
 def torque_callback(torque_data):
     rollout_temp.torque = [torque_data.joint1,
@@ -265,8 +270,9 @@ if __name__ == '__main__':
     rollout_flag = 0
     rollout_flag = 0  # when 0, do not record, when 1, keep recording
     move_home_init()
-    home_angles = temp_angles
     time.sleep(2)
+    # home_angles = temp_angles
+
     while (len(rollout_observation_torque)<ROLLOUT_AMOUNT*DATA_LENGTH) & MOVING:
         move_home()
         time.sleep(2)

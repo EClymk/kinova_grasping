@@ -65,6 +65,7 @@ def return_home_angle():
     home_srv = rospy.ServiceProxy('/j2s7s300_driver/in/home_arm', kinova_msgs.srv.HomeArm)
     home_srv()
     time.sleep(0.2)
+    global temp_angles
     ini_angles = temp_angles
     time.sleep(0.2)
     big_angle_err = True
