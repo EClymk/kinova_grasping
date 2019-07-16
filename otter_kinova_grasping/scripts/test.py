@@ -35,7 +35,7 @@ import inspect
 
 class AgentROS():
     def __init(self):
-        rospy.init_node('kinova_agent_ros_node')
+        rospy.init_node('agent_ros_node')
         self._init_pubs_and_subs(self)
         r = rospy.rate(1)
         r.sleep()
@@ -52,12 +52,9 @@ class AgentROS():
                          queue_size=1)
         # if VELOCITY_CONTROL == 1:
         rospy.Subscriber('/target_goal', Float32MultiArray, self.move_callback_velocity_control, queue_size=1)
+        cmd_pub = rospy.Publisher('/agent_ros/position_feed', Float32MultiArray, queue_size=1)
         # else:
         #     rospy.Subscriber('/target_goal', Float32MultiArray, move_callback_position_control, queue_size=1)
-        velo_pub = rospy.Publisher('/j2s7s300_driver/in/cartesian_velocity', kinova_msgs.msg.PoseVelocity, queue_size=1)
-        CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0]
-        velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
-        r = rospy.Rate(100)
 
     class RollOutData:
         image = []
@@ -70,37 +67,6 @@ class AgentROS():
         cmd = []
         reward = []
 
-    def robot_wrench_callback(self, msg):
-        global MOVING
-        if abs(msg.wrench.force.x) > 5.0 or abs(msg.wrench.force.y) > 5.0 or abs(msg.wrench.force.z) > 7.0:
-            rospy.logerr('Force Detected. Stopping.')
-            MOVING = False
-            print(msg.wrench)
-            print(temp_angles)
-            if temp_angles != []:
-                joint_angle_client([temp_angles.joint1, temp_angles.joint2, temp_angles.joint3, temp_angles.joint4,
-                                    temp_angles.joint5, temp_angles.joint6, temp_angles.joint7])
-                rospy.ServiceProxy('/j2s7s300_driver/in/start_force_control', kinova_msgs.srv.Start)
-
-    def move_home():
-        joint_angle_client([home_angles.joint1, home_angles.joint2, home_angles.joint3, home_angles.joint4,
-                            home_angles.joint5, home_angles.joint6, home_angles.joint7])  # should be in absolute degree
-        time.sleep(0.5)
-
-    def move_home_init():
-        global x_r  # using position control, however, may result in different pose
-        global y_r
-        global z_r
-        # x_r = -0.03
-        # y_r = -0.538
-        # z_r = 0.375
-        # noinspection PyInterpreter
-        x_r = 0.09
-        y_r = -0.446
-        z_r = 0.375
-        # move_to_position([x_r,y_r,z_r], [0.072, 0.6902, -0.7172, 0.064])
-        move_to_position([x_r, y_r, z_r], [0.708, -0.019, 0.037, 0.705])
-        time.sleep(0)
 
     def move_callback_velocity_control(self, data):
         # disp = [data.data[0], data.data[1], data.data[2]]
