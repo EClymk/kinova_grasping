@@ -33,26 +33,30 @@ from std_msgs.msg import String
 import inspect
 
 
+def policy(stat):
+    act = [0.1,0.1, 0.1]
+    return act
+
+bridge = CvBridge()
+
 class AgentROS():
-    def __init(self):
+    def __init__(self):
         rospy.init_node('agent_ros_node')
-        self._init_pubs_and_subs(self)
-        r = rospy.rate(1)
+        self._init_pubs_and_subs()
+        r = rospy.Rate(1)
         r.sleep()
+        bridge = CvBridge()
 
     def _init_pubs_and_subs(self):
-        rospy.Subscriber('/j2s7s300_driver/out/tool_wrench', geometry_msgs.msg.WrenchStamped, self.robot_wrench_callback,
-                         queue_size=1)
         rospy.Subscriber('/camera/color/image_raw', Image, self.color_callback, queue_size=1)
         rospy.Subscriber('/j2s7s300_driver/out/joint_torques', kinova_msgs.msg.JointTorque, self.torque_callback,
                          queue_size=1)
         rospy.Subscriber('/j2s7s300_driver/out/tool_pose', geometry_msgs.msg.PoseStamped, self.pose_callback, queue_size=1)
         rospy.Subscriber('/j2s7s300_driver/out/joint_state', sensor_msgs.msg.JointState, self.joint_callback, queue_size=1)
-        rospy.Subscriber('/j2s7s300_driver/out/joint_angles', kinova_msgs.msg.JointAngles, self.jointangle_callback,
-                         queue_size=1)
+        # rospy.Subscriber('/j2s7s300_driver/out/joint_angles', kinova_msgs.msg.JointAngles, self.jointangle_callback,
+        #                  queue_size=1)
         # if VELOCITY_CONTROL == 1:
-        rospy.Subscriber('/target_goal', Float32MultiArray, self.move_callback_velocity_control, queue_size=1)
-        cmd_pub = rospy.Publisher('/agent_ros/position_feed', Float32MultiArray, queue_size=1)
+        self.cmd_pub = rospy.Publisher('/agent_ros/position_feed', Float32MultiArray, queue_size=1)            # [x y z home]
         # else:
         #     rospy.Subscriber('/target_goal', Float32MultiArray, move_callback_position_control, queue_size=1)
 
@@ -67,41 +71,21 @@ class AgentROS():
         cmd = []
         reward = []
 
+    rollout_observation_image = []
+    rollout_observation_torque = []
+    rollout_observation_pose = []
+    rollout_observation_orientation = []
+    rollout_observation_joint_angle = []
+    rollout_observation_joint_velocity = []
+    rollout_observation_action = []
+    # rollout_observation_cmd = []
+    rollout_observation_reward = []
+    target_position = (0, -0.5, 0.4)
+    stat = []
+    rollout_temp = RollOutData()
 
-    def move_callback_velocity_control(self, data):
-        # disp = [data.data[0], data.data[1], data.data[2]]
-        global x_v
-        global y_v
-        global z_v
-        x_v = data.data[0] * POSE_FREQ * K
-        y_v = data.data[1] * POSE_FREQ * K
-        z_v = data.data[2] * POSE_FREQ * K
-        self.rollout_temp.action = data.data
-        self.rollout_temp.cmd = [x_v, y_v, z_v, 0, 0, 0]
-        if self.rollout_temp.pose[0] > 0.2:
-            x_v = -abs(x_v)
-        elif self.rollout_temp.pose[0] < -0.1:
-            x_v = abs(x_v)
-        if self.rollout_temp.pose[1] > -0.4:
-            y_v = -abs(y_v)
-        elif self.rollout_temp.pose[1] < -0.7:
-            y_v = abs(y_v)
-        if self.rollout_temp.pose[2] > 0.465:
-            z_v = -abs(z_v)
-        elif self.rollout_temp.pose[2] < 0.365:
-            z_v = abs(z_v)
-        return x_v, y_v, z_v
-        # move_to_position(disp,[0.072, 0.6902, -0.7172, 0.064])
-
-    def move_callback_position_control(self, data):
-        disp = self.rollout_temp.pose
-        for i in len(self.rollout_temp.pose):
-            self.rollout_temp.pose[i] += data[i] * K
-        # move_to_position(disp,[0.072, 0.6902, -0.7172, 0.064])          # now it's a specified orientation
-        move_to_position(disp, [0.708, -0.019, 0.037, 0.705])  # now it's a specified orientation
 
     def color_callback(self, color_data):
-
         original_image = bridge.imgmsg_to_cv2(color_data, 'bgr8')
 
         # Crop a square out of the middle of the depth and resize it to 300*300
@@ -109,39 +93,95 @@ class AgentROS():
         self.rollout_temp.image = cv2.resize(original_image[(480 - crop_size) // 2:(480 - crop_size) // 2 + crop_size,
                                         (640 - crop_size) // 2:(640 - crop_size) // 2 + crop_size], (480, 480))
 
-    def jointangle_callback(self, data):
-        global temp_angles
-        temp_angles = data
-        print('!!')
+    # def jointangle_callback(self, data):
+    #     global temp_angles
+    #     temp_angles = data
+    #     print('!!')
 
     def torque_callback(self, torque_data):
         self.rollout_temp.torque = [torque_data.joint1,
-                               torque_data.joint2,
-                               torque_data.joint3,
-                               torque_data.joint4,
-                               torque_data.joint5,
-                               torque_data.joint6,
-                               torque_data.joint7
-                               ]
+                                    torque_data.joint2,
+                                    torque_data.joint3,
+                                    torque_data.joint4,
+                                    torque_data.joint5,
+                                    torque_data.joint6,
+                                    torque_data.joint7
+                                    ]
 
     def pose_callback(self, pose_data):
         self.rollout_temp.pose = [pose_data.pose.position.x,
-                             pose_data.pose.position.y,
-                             pose_data.pose.position.z
-                             ]
+                                  pose_data.pose.position.y,
+                                  pose_data.pose.position.z
+                                  ]
 
         self.rollout_temp.orientation = [pose_data.pose.orientation.x,
-                                    pose_data.pose.orientation.y,
-                                    pose_data.pose.orientation.z,
-                                    pose_data.pose.orientation.w
-                                    ]
+                                         pose_data.pose.orientation.y,
+                                         pose_data.pose.orientation.z,
+                                         pose_data.pose.orientation.w
+                                         ]
 
     def joint_callback(self, joint_data):
         self.rollout_temp.joint_angle = list(joint_data.position)
         self.rollout_temp.joint_velocity = list(joint_data.velocity)
 
+    def timer_callback(self,event):
+        self.rollout_observation_image.append(self.rollout_temp.image)
+        self.rollout_observation_torque.append(self.rollout_temp.torque)
+        self.rollout_observation_pose.append(self.rollout_temp.pose)
+        self.rollout_observation_orientation.append(self.rollout_temp.orientation)
+        self.rollout_observation_joint_angle.append(self.rollout_temp.joint_angle)
+        self.rollout_observation_joint_velocity.append(self.rollout_temp.joint_velocity)
+        self.rollout_observation_action.append(self.rollout_temp.action)
+        # self.rollout_observation_cmd.append(self.rollout_temp.cmd)
+        self.rollout_observation_reward.append(self.reward(self.target_position, self.rollout_temp.pose))
+        self.stat = 1
+
+    def rollout_clean(self):
+        self.rollout_observation_image = []
+        self.rollout_observation_torque = []
+        self.rollout_observation_pose = []
+        self.rollout_observation_orientation = []
+        self.rollout_observation_joint_angle = []
+        self.rollout_observation_joint_velocity = []
+        self.rollout_observation_action = []
+        # self.rollout_observation_cmd = []
+        self.rollout_observation_reward = []
 
     def reward(self, target_position, current_position):
         pose_data = -np.square(np.array(target_position) - np.array(current_position))
         return pose_data
 
+    def rollout(self, length, amount):
+        self.rollout_clean()
+        r = rospy.Rate(10)
+        for i in range(amount):
+
+            rospy.Timer(rospy.Duration(0.1), self.timer_callback)
+            for j in range(length):
+
+                self.rollout_observation_action = policy(self.stat)
+                act = self.rollout_observation_action.append(1)
+                self.cmd_pub.publish(act)
+                self.r.sleep()
+            act = self.rollout_observation_action.append(0)
+            self.cmd_pub.publish(act)
+            rospy.Timer.shutdown()
+            time.sleep(5)
+
+        rollout_observation = [
+            np.array(self.rollout_observation_action).reshape((amount, length, 3)),
+            # np.array(self.rollout_observation_cmd).reshape((amount, length, 6)),
+            np.array(self.rollout_observation_reward).reshape((amount, length, 3)),
+            np.array(self.rollout_observation_torque).reshape((amount, length, 7)),
+            np.array(self.rollout_observation_pose).reshape((amount, length, 3)),
+            np.array(self.rollout_observation_orientation).reshape((amount, length, 4)),
+            np.array(self.rollout_observation_joint_angle).reshape((amount, length, 10)),
+            np.array(self.rollout_observation_joint_velocity).reshape((amount, length, 10)),
+            np.array(self.rollout_observation_image).reshape((amount, length, len(self.rollout_observation_image)/amount/length))
+        ]
+        return rollout_observation
+
+
+while True:
+    agent = AgentROS()
+    agent.rollout(3,100)
