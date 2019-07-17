@@ -34,7 +34,14 @@ from std_msgs.msg import Float32MultiArray
 from std_msgs.msg import String
 
 import inspect
+import collections
 
+
+currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+grandgrandparentdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(currentdir))))
+
+IMAGE_WIDTH = 128
+STATE_DIM = 3*IMAGE_WIDTH*IMAGE_WIDTH
 
 def policy(stat):
     act = [0.1,0.1, 0.1]
@@ -75,6 +82,7 @@ class AgentROS():
         action = []
         cmd = []
         reward = []
+        done = []
 
     rollout_observation_image = []
     rollout_observation_torque = []
@@ -82,9 +90,10 @@ class AgentROS():
     rollout_observation_orientation = []
     rollout_observation_joint_angle = []
     rollout_observation_joint_velocity = []
-    rollout_observation_action = []
+    rollout_action = []
+    rollout_reward = []
+    rollout_done = []
     # rollout_observation_cmd = []
-    rollout_observation_reward = []
     target_position = (0, -0.5, 0.4)
     stat = []
     rollout_temp = RollOutData()
@@ -96,7 +105,8 @@ class AgentROS():
         # Crop a square out of the middle of the depth and resize it to 300*300
         crop_size = 480
         self.rollout_temp.image = cv2.resize(original_image[(480 - crop_size) // 2:(480 - crop_size) // 2 + crop_size,
-                                        (640 - crop_size) // 2:(640 - crop_size) // 2 + crop_size], (480, 480))
+                                        (640 - crop_size) // 2:(640 - crop_size) // 2 + crop_size], (IMAGE_WIDTH, IMAGE_WIDTH))
+        # print(type(self.rollout_temp.image))
 
     # def jointangle_callback(self, data):
     #     global temp_angles
@@ -129,17 +139,17 @@ class AgentROS():
         self.rollout_temp.joint_angle = list(joint_data.position)
         self.rollout_temp.joint_velocity = list(joint_data.velocity)
 
-    def timer_callback(self):
+    def save_rollout(self):
         self.rollout_observation_image.append(self.rollout_temp.image)
         self.rollout_observation_torque.append(self.rollout_temp.torque)
         self.rollout_observation_pose.append(self.rollout_temp.pose)
         self.rollout_observation_orientation.append(self.rollout_temp.orientation)
         self.rollout_observation_joint_angle.append(self.rollout_temp.joint_angle)
         self.rollout_observation_joint_velocity.append(self.rollout_temp.joint_velocity)
-        self.rollout_observation_action.append(self.rollout_temp.action)
+        self.rollout_action.append(self.rollout_temp.action)
         # self.rollout_observation_cmd.append(self.rollout_temp.cmd)
-        self.rollout_observation_reward.append(self.reward(self.target_position, self.rollout_temp.pose))
-        self.stat = 1
+        self.rollout_reward.append(self.reward(self.target_position, self.rollout_temp.pose))
+        self.rollout_done.appned(self.rollout_temp.done)
 
     def rollout_clean(self):
         self.rollout_observation_image = []
@@ -148,13 +158,16 @@ class AgentROS():
         self.rollout_observation_orientation = []
         self.rollout_observation_joint_angle = []
         self.rollout_observation_joint_velocity = []
-        self.rollout_observation_action = []
+        self.rollout_action = []
         # self.rollout_observation_cmd = []
-        self.rollout_observation_reward = []
+        self.rollout_reward = []
+        self.rollout_done = []
 
     def reward(self, target_position, current_position):
         pose_data = -np.square(np.array(target_position) - np.array(current_position))
-        return pose_data
+        reward = np.sum(pose_data)
+        print(reward)
+        return reward
 
     def home_client(self):
         rospy.wait_for_service('/agent_ros/srv/home')
@@ -165,41 +178,124 @@ class AgentROS():
         except rospy.ServiceException, e:
             print "Service call failed: %s"%e
 
+    def reset(self):
+        self.home_client()
+        time.sleep(1)
+        return self.observe()
 
-    def rollout(self, length, amount):
-        self.rollout_clean()
+    def observe(self):
+        return self.rollout_temp.image.flatten()
+
+    def get_state_dim(self):
+        return STATE_DIM
+
+    def get_action_dim(self):
+        return 3
+
+    def step(self,actions):
+        self.cmd_pub.publish(msgs.msg.ActionCommand(*actions))
+        return self.observe(), self.reward(self.target_position, self.rollout_temp.pose),False
+
+    def rollout(self, num_horizon, init_std=1):
+        # if policy is None:
+        #     def policy(_, t, noise=None):
+        #         return np.random.normal(size=self.get_action_dim(), scale=init_std)
         r = rospy.Rate(10)
-        for i in range(amount):
+        states, actions, costs = (
+            np.zeros([num_horizon] + [self.get_state_dim()]),
+            np.zeros([num_horizon] + [self.get_action_dim()]),
+            np.zeros([num_horizon])
+        )
+        infos = collections.defaultdict(list)
+        current_state = self.reset()
+        # print(current_state)
+        for t in range(num_horizon):
+            states[t] = current_state
+            actions[t] = policy(states[t])
+            current_state, costs[t], done = self.step(actions[t])
+            r.sleep()
+            # for k, v in info.items():
+            #     infos[k].append(v)
+        # if self.currently_logging:
+        #     log_entry = collections.OrderedDict()
+        #     log_entry['episode_number'] = self.episode_number
+        #     log_entry['mean_cost'] = costs.mean()
+        #     log_entry['total_cost'] = costs.sum()
+        #     log_entry['final_cost'] = costs[-1]
+        #     for k, v in infos.items():
+        #         v = np.array(v)
+        #         log_entry['mean_%s' % k] = v.mean()
+        #         log_entry['total_%s' % k] = v.sum()
+        #         log_entry['final_%s' % k] = v[-1]
+        #     self.log_entry(log_entry)
+        #     self.episode_number += 1
+        return states, actions, costs
 
-            # rospy.Timer(rospy.Duration(0.1), self.timer_callback)
-            for j in range(length):
-                self.rollout_temp.action = policy(self.stat)
-                print(self.rollout_temp.action)
-                self.cmd_pub.publish(msgs.msg.ActionCommand(*self.rollout_temp.action))
-                self.timer_callback()
-                r.sleep()
+    def rollouts(self, num_rollouts, num_horizon):
+        states, actions, costs = (
+            np.empty([num_rollouts, num_horizon] + [self.get_state_dim()]),
+            np.empty([num_rollouts, num_horizon] + [self.get_action_dim()]),
+            np.empty([num_rollouts, num_horizon])
+        )
+        # infos = [None] * num_rollouts
+        # rollouts = tqdm.trange(num_rollouts, desc='Rollouts') if show_progress else range(num_rollouts)
+        for i in range(num_rollouts):
+            states[i], actions[i], costs[i] = \
+            self.rollout(num_horizon)
+        self.reset()
+        return [states, actions, costs]
 
+    # def rollout(self, length, amount):
+    #     self.rollout_clean()
+    #     r = rospy.Rate(10)
+    #     for i in range(amount):
+    #         current_state = self.reset()
+    #         # rospy.Timer(rospy.Duration(0.1), self.timer_callback)
+    #         for j in range(length):
+    #             self.stat = current_state
+    #             self.rollout_temp.action = policy(self.stat)
+    #             print(self.rollout_temp.action)
+    #             self.cmd_pub.publish(msgs.msg.ActionCommand(*self.rollout_temp.action))
+    #             self.rollout_temp.done = self.isdone()
+    #             self.save_rollout()
+    #             r.sleep()
+    #             current_state = self.observe()
+    #         # act = self.rollout_temp.action
+    #         # print(act)
+    #         # rospy.Timer.shutdown()
+    #     self.home_client()
+    #     rollout_observation = [
+    #         np.array(self.rollout_observation_action).reshape((amount, length, 3)),
+    #         # np.array(self.rollout_observation_cmd).reshape((amount, length, 6)),
+    #         np.array(self.rollout_observation_reward).reshape((amount, length, 3)),
+    #         np.array(self.rollout_observation_torque).reshape((amount, length, 7)),
+    #         np.array(self.rollout_observation_pose).reshape((amount, length, 3)),
+    #         np.array(self.rollout_observation_orientation).reshape((amount, length, 4)),
+    #         np.array(self.rollout_observation_joint_angle).reshape((amount, length, 10)),
+    #         np.array(self.rollout_observation_joint_velocity).reshape((amount, length, 10)),
+    #         np.array(self.rollout_observation_image).reshape((amount, length, 691200))
+    #     ]
+    #     return rollout_observation
 
-            act = self.rollout_temp.action
-            print(act)
-            self.home_client()
-            # rospy.Timer.shutdown()
-            time.sleep(1)
-        print(self.rollout_observation_action)
-        print(len(self.rollout_observation_image))
-        rollout_observation = [
-            np.array(self.rollout_observation_action).reshape((amount, length, 3)),
-            # np.array(self.rollout_observation_cmd).reshape((amount, length, 6)),
-            np.array(self.rollout_observation_reward).reshape((amount, length, 3)),
-            np.array(self.rollout_observation_torque).reshape((amount, length, 7)),
-            np.array(self.rollout_observation_pose).reshape((amount, length, 3)),
-            np.array(self.rollout_observation_orientation).reshape((amount, length, 4)),
-            np.array(self.rollout_observation_joint_angle).reshape((amount, length, 10)),
-            np.array(self.rollout_observation_joint_velocity).reshape((amount, length, 10)),
-            np.array(self.rollout_observation_image).reshape((amount, length, 691200))
-        ]
-        return rollout_observation
+class IO(object):
+    def __init__(self, file):
+        self.file = file
+    def to_pickle(self, data):
+        with open(self.file,'wb') as f:
+            pickle.dump(data,f)
+    def read_pickle(self):
+        with open(self.file, 'rb') as f:
+            data = pickle.load(f)
+        return data
+
 
 agent = AgentROS()
-while True:
-    agent.rollout(20,3)
+DIR1 = grandgrandparentdir
+DIR2 = str(rospy.get_time())
+DIR = DIR1+'/data/'+DIR2
+os.makedirs(DIR, mode=0o777)
+dataIO = IO(DIR + '/data.pkl')
+rollout = agent.rollouts(3,20)
+dataIO.to_pickle(rollout)
+# agent.rollouts(3,20)
+time.sleep(20)
