@@ -14,6 +14,8 @@ import sensor_msgs.msg
 import actionlib_msgs.msg
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
+import msgs.msg
+import msgs.srv
 
 
 from helpers.gripper_action_client import set_finger_positions
@@ -56,6 +58,9 @@ class AgentKinova():
         self._init_pubs_and_subs()
         r = rospy.Rate(100)
         r.sleep()
+        self.move_home_init()
+        r.sleep()
+        self.home_angles = self.temp_angles
         print('init finished')
 
     def _init_pubs_and_subs(self):
@@ -65,15 +70,16 @@ class AgentKinova():
         # rospy.Subscriber('/j2s7s300_driver/out/joint_state', sensor_msgs.msg.JointState, self.joint_callback, queue_size=1)
         rospy.Subscriber('/j2s7s300_driver/out/joint_angles', kinova_msgs.msg.JointAngles, self.joint_angle_callback,
                           queue_size=1)
-        rospy.Subscriber('/agent_ros/position_feed', Float32MultiArray, self.move_callback_velocity_control, queue_size=1)
+        # rospy.Subscriber('/agent_ros/position_feed', Float32MultiArray, self.move_callback_velocity_control, queue_size=1)
         # if VELOCITY_CONTROL == 1:
-        rospy.Subscriber('/target_goal', Float32MultiArray, self.move_callback_velocity_control, queue_size=1)
+        rospy.Subscriber('/agent_ros/position_feed', msgs.msg.ActionCommand, self.move_callback_velocity_control, queue_size=1)
         # else:
         #     rospy.Subscriber('/target_goal', Float32MultiArray, move_callback_position_control, queue_size=1)
         self.velo_pub = rospy.Publisher('/j2s7s300_driver/in/cartesian_velocity', kinova_msgs.msg.PoseVelocity, queue_size=1)
         CURRENT_VELOCITY = [0, 0, 0, 0, 0, 0]
         self.velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
         self.r = rospy.Rate(100)
+        self.home_srv = rospy.Service('/agent_ros/srv/home', msgs.srv.Home, self.move_home)
 
     def pose_callback(self, pose_data):
         self.pose = [pose_data.pose.position.x,
@@ -98,14 +104,31 @@ class AgentKinova():
 
     def move_home_init(self):
         # move_to_position([x_r,y_r,z_r], [0.072, 0.6902, -0.7172, 0.064])
+
         move_to_position([self.x_r, self.y_r, self.z_r], [0.708, -0.019, 0.037, 0.705])
-        time.sleep(0)
+        time.sleep(0.5)
+        self.MOVING = True
+        return 1
+
+    def move_home(self,req):
+        if req.home:
+            self.MOVING = False
+            self.x_v = 0
+            self.y_v = 0
+            self.z_v = 0
+            joint_angle_client([self.home_angles.joint1, self.home_angles.joint2, self.home_angles.joint3,
+                                self.home_angles.joint4, self.home_angles.joint5, self.home_angles.joint6,
+                                self.home_angles.joint7])
+            time.sleep(0.5)
+            print('home!')
+            self.MOVING = True
+        return 1
 
     def move_callback_velocity_control(self, data):
         # disp = [data.data[0], data.data[1], data.data[2]]
-        x_v = data.data[0] * self.POSE_FREQ * self.K
-        y_v = data.data[1] * self.POSE_FREQ * self.K
-        z_v = data.data[2] * self.POSE_FREQ * self.K
+        x_v = data.x * self.POSE_FREQ * self.K
+        y_v = data.y * self.POSE_FREQ * self.K
+        z_v = data.z * self.POSE_FREQ * self.K
         # self.rollout_temp.action = data.data
         # self.rollout_temp.cmd = [x_v, y_v, z_v, 0, 0, 0]
         if self.pose[0] > 0.2:
@@ -126,10 +149,11 @@ class AgentKinova():
         # move_to_position(disp,[0.072, 0.6902, -0.7172, 0.064])
 
     def __main__(self):
-        while self.MOVING:
-            CURRENT_VELOCITY = [self.x_v, self.y_v, self.z_v, 0, 0, 0]
-            self.velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
-            self.r.sleep()
+        while not rospy.is_shutdown():
+            if self.MOVING:
+                CURRENT_VELOCITY = [self.x_v, self.y_v, self.z_v, 0, 0, 0]
+                self.velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
+                self.r.sleep()
 
 
 if __name__ == '__main__':

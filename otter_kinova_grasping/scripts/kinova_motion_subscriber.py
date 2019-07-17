@@ -12,6 +12,7 @@ import std_srvs.srv
 import geometry_msgs.msg
 import sensor_msgs.msg
 import actionlib_msgs.msg
+import msgs.ActionCommand.msg
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 

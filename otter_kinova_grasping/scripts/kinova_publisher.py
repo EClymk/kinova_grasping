@@ -12,6 +12,9 @@ import std_srvs.srv
 import geometry_msgs.msg
 import sensor_msgs.msg
 import actionlib_msgs.msg
+# import otter_kinova_grasping.ActionCommand.msg
+import msgs.msg
+import msgs.srv
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -35,6 +38,8 @@ import inspect
 
 def policy(stat):
     act = [0.1,0.1, 0.1]
+    print('---')
+    print(act)
     return act
 
 bridge = CvBridge()
@@ -56,7 +61,7 @@ class AgentROS():
         # rospy.Subscriber('/j2s7s300_driver/out/joint_angles', kinova_msgs.msg.JointAngles, self.jointangle_callback,
         #                  queue_size=1)
         # if VELOCITY_CONTROL == 1:
-        self.cmd_pub = rospy.Publisher('/agent_ros/position_feed', Float32MultiArray, queue_size=1)            # [x y z home]
+        self.cmd_pub = rospy.Publisher('/agent_ros/position_feed', msgs.msg.ActionCommand, queue_size=1)            # [x y z home]
         # else:
         #     rospy.Subscriber('/target_goal', Float32MultiArray, move_callback_position_control, queue_size=1)
 
@@ -124,7 +129,7 @@ class AgentROS():
         self.rollout_temp.joint_angle = list(joint_data.position)
         self.rollout_temp.joint_velocity = list(joint_data.velocity)
 
-    def timer_callback(self,event):
+    def timer_callback(self):
         self.rollout_observation_image.append(self.rollout_temp.image)
         self.rollout_observation_torque.append(self.rollout_temp.torque)
         self.rollout_observation_pose.append(self.rollout_temp.pose)
@@ -151,23 +156,37 @@ class AgentROS():
         pose_data = -np.square(np.array(target_position) - np.array(current_position))
         return pose_data
 
+    def home_client(self):
+        rospy.wait_for_service('/agent_ros/srv/home')
+        try:
+            home_req = rospy.ServiceProxy('/agent_ros/srv/home', msgs.srv.Home)
+            home1 = home_req(1)
+            return home1.done
+        except rospy.ServiceException, e:
+            print "Service call failed: %s"%e
+
+
     def rollout(self, length, amount):
         self.rollout_clean()
         r = rospy.Rate(10)
         for i in range(amount):
 
-            rospy.Timer(rospy.Duration(0.1), self.timer_callback)
+            # rospy.Timer(rospy.Duration(0.1), self.timer_callback)
             for j in range(length):
+                self.rollout_temp.action = policy(self.stat)
+                print(self.rollout_temp.action)
+                self.cmd_pub.publish(msgs.msg.ActionCommand(*self.rollout_temp.action))
+                self.timer_callback()
+                r.sleep()
 
-                self.rollout_observation_action = policy(self.stat)
-                act = self.rollout_observation_action.append(1)
-                self.cmd_pub.publish(act)
-                self.r.sleep()
-            act = self.rollout_observation_action.append(0)
-            self.cmd_pub.publish(act)
-            rospy.Timer.shutdown()
-            time.sleep(5)
 
+            act = self.rollout_temp.action
+            print(act)
+            self.home_client()
+            # rospy.Timer.shutdown()
+            time.sleep(1)
+        print(self.rollout_observation_action)
+        print(len(self.rollout_observation_image))
         rollout_observation = [
             np.array(self.rollout_observation_action).reshape((amount, length, 3)),
             # np.array(self.rollout_observation_cmd).reshape((amount, length, 6)),
@@ -177,11 +196,10 @@ class AgentROS():
             np.array(self.rollout_observation_orientation).reshape((amount, length, 4)),
             np.array(self.rollout_observation_joint_angle).reshape((amount, length, 10)),
             np.array(self.rollout_observation_joint_velocity).reshape((amount, length, 10)),
-            np.array(self.rollout_observation_image).reshape((amount, length, len(self.rollout_observation_image)/amount/length))
+            np.array(self.rollout_observation_image).reshape((amount, length, 691200))
         ]
         return rollout_observation
 
-
+agent = AgentROS()
 while True:
-    agent = AgentROS()
-    agent.rollout(3,100)
+    agent.rollout(20,3)
