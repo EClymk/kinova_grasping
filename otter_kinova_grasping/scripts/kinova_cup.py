@@ -18,13 +18,14 @@ import msgs.msg
 import msgs.srv
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
+from otter_kinova_grasping.otter_kinova_grasping.scripts.kinova_agent_base import AgentROSbase
 
 
-from helpers.gripper_action_client import set_finger_positions
-from helpers.position_action_client import position_client, move_to_position
-from helpers.joints_action_client import joint_angle_client
-from helpers.covariance import generate_cartesian_covariance
-import kinova_angle_home
+from otter_kinova_grasping.otter_kinova_grasping.scripts.helpers.gripper_action_client import set_finger_positions
+from otter_kinova_grasping.otter_kinova_grasping.scripts.helpers.position_action_client import position_client, move_to_position
+from otter_kinova_grasping.otter_kinova_grasping.scripts.helpers.joints_action_client import joint_angle_client
+from otter_kinova_grasping.otter_kinova_grasping.scripts.helpers.covariance import generate_cartesian_covariance
+import otter_kinova_grasping.otter_kinova_grasping.scripts.kinova_angle_home
 
 import os
 import time
@@ -37,7 +38,7 @@ from std_msgs.msg import String
 import inspect
 import collections
 
-from .kinova_agnet_base import AgentROSbase
+
 
 
 class CupAgentROS(AgentROSbase):
