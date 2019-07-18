@@ -61,6 +61,7 @@ add_message_files(
 add_service_files(
    FILES
    Home.srv
+   HomeAndLimit.srv
 #   Service1.srv
 #   Service2.srv
  )
@@ -75,9 +76,9 @@ add_service_files(
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
    DEPENDENCIES
-   std_msgs  # Or other packages containing msgs
+   std_msgs
  )
-
+  # Or other packages containing msgs
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
 ################################################

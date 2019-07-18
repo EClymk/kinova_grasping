@@ -38,7 +38,6 @@ import inspect
 class AgentKinova():
     VELOCITY_CONTROL = 1  # when 0, position control; when 1, velocity control
     POSE_FREQ = 10  # the frequency of input
-    K = 0.02  # coefficient of input to motion
     target_position = (0, -0.5, 0.4)
     bridge = CvBridge()
     MOVING = True  # when false, this program is to be shut down
@@ -48,9 +47,9 @@ class AgentKinova():
     temp_angles = []
     home_angles = []
     pose = []
-    x_r = 0.09
-    y_r = -0.446
-    z_r = 0.375
+    home_xyz = [0.09, -0.446, 0.375]
+    home_orientation = [0.708, -0.019, 0.037, 0.705]
+    limit_xyz = [-0.1, 0.2, -0.7, -0.4, 0.365, 0.465]
     r = []
 
     def __init__(self):
@@ -64,8 +63,8 @@ class AgentKinova():
         print('init finished')
 
     def _init_pubs_and_subs(self):
-        rospy.Subscriber('/j2s7s300_driver/out/tool_wrench', geometry_msgs.msg.WrenchStamped, self.robot_wrench_callback,
-                         queue_size=1)
+        # rospy.Subscriber('/j2s7s300_driver/out/tool_wrench', geometry_msgs.msg.WrenchStamped, self.robot_wrench_callback,
+        #                  queue_size=1)
         rospy.Subscriber('/j2s7s300_driver/out/tool_pose', geometry_msgs.msg.PoseStamped, self.pose_callback, queue_size=1)
         # rospy.Subscriber('/j2s7s300_driver/out/joint_state', sensor_msgs.msg.JointState, self.joint_callback, queue_size=1)
         rospy.Subscriber('/j2s7s300_driver/out/joint_angles', kinova_msgs.msg.JointAngles, self.joint_angle_callback,
@@ -80,6 +79,17 @@ class AgentKinova():
         self.velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
         self.r = rospy.Rate(100)
         self.home_srv = rospy.Service('/agent_ros/srv/home', msgs.srv.Home, self.move_home)
+        self.home_and_limit_srv = rospy.Service('/agent_ros/srv/home_and_limit_range', msgs.srv.HomeAndLimit,
+                                                self.home_and_limit)
+
+    def home_and_limit(self, req):
+        if req.home_xyz:
+            self.home_xyz = req.home_xyz
+            self.home_orientation = req.home_orientation
+            self.limit_xyz = req.limit_range
+            time.sleep(0.5)
+            # self.MOVING = True
+        return 1
 
     def pose_callback(self, pose_data):
         self.pose = [pose_data.pose.position.x,
@@ -104,13 +114,14 @@ class AgentKinova():
 
     def move_home_init(self):
         # move_to_position([x_r,y_r,z_r], [0.072, 0.6902, -0.7172, 0.064])
-
-        move_to_position([self.x_r, self.y_r, self.z_r], [0.708, -0.019, 0.037, 0.705])
+        self.MOVING = False
+        move_to_position(self.home_xyz, self.home_orientation)
         time.sleep(0.5)
+        self.home_angles = self.temp_angles
         self.MOVING = True
         return 1
 
-    def move_home(self,req):
+    def move_home(self, req):
         if req.home:
             self.MOVING = False
             self.x_v = 0
@@ -126,22 +137,22 @@ class AgentKinova():
 
     def move_callback_velocity_control(self, data):
         # disp = [data.data[0], data.data[1], data.data[2]]
-        x_v = data.x * self.POSE_FREQ * self.K
-        y_v = data.y * self.POSE_FREQ * self.K
-        z_v = data.z * self.POSE_FREQ * self.K
+        x_v = data.x * self.POSE_FREQ
+        y_v = data.y * self.POSE_FREQ
+        z_v = data.z * self.POSE_FREQ
         # self.rollout_temp.action = data.data
         # self.rollout_temp.cmd = [x_v, y_v, z_v, 0, 0, 0]
-        if self.pose[0] > 0.2:
+        if self.pose[0] > self.limit_xyz[1]:
             x_v = -abs(x_v)
-        elif self.pose[0] < -0.1:
+        elif self.pose[0] < self.limit_xyz[0]:
             x_v = abs(x_v)
-        if self.pose[1] > -0.4:
+        if self.pose[1] > self.limit_xyz[3]:
             y_v = -abs(y_v)
-        elif self.pose[1] < -0.7:
+        elif self.pose[1] < self.limit_xyz[2]:
             y_v = abs(y_v)
-        if self.pose[2] > 0.465:
+        if self.pose[2] > self.limit_xyz[5]:
             z_v = -abs(z_v)
-        elif self.pose[2] < 0.365:
+        elif self.pose[2] < self.limit_xyz[4]:
             z_v = abs(z_v)
         self.x_v = x_v
         self.y_v = y_v

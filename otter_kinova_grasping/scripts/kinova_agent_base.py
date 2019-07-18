@@ -4,6 +4,7 @@ import rospy
 import tf.transformations as tft
 
 import numpy as np
+import abc
 
 import kinova_msgs.msg
 import kinova_msgs.srv
@@ -42,22 +43,31 @@ grandgrandparentdir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.di
 
 IMAGE_WIDTH = 128
 STATE_DIM = 3*IMAGE_WIDTH*IMAGE_WIDTH
+CROP_SIZE = 360
+KINOVA_HOME_ANGLE = [4.543, 3.370, -0.264, 0.580, 2.705, 4.350, 6.425, 0, 0,0 ]
+KINOVA_HOME_XYZ = [0.09, -0.446, 0.375]
+KINOVA_HOME_ORIENTATION = [0.708, -0.019, 0.037, 0.705]
+KINOVA_LIMIT = [-0.1, 0.2, -0.7, -0.4, 0.365, 0.465]
+K = 0.02        # velocity parameter v = K*input(from -1 to 1)m/s
 
-def policy(stat):
-    act = [0.1,0.1, 0.1]
+def policy1(stat):
+    act = [1,1, 1]
+    act =np.array( [np.random.uniform(-1,1) , np.random.uniform(-1,1) , np.random.uniform(-1,1) ])
     print('---')
     print(act)
     return act
 
 bridge = CvBridge()
 
-class AgentROS():
+class AgentROSbase(metaclass=abc.ABCMeta):
     def __init__(self):
         rospy.init_node('agent_ros_node')
         self._init_pubs_and_subs()
         r = rospy.Rate(1)
         r.sleep()
         bridge = CvBridge()
+
+
 
     def _init_pubs_and_subs(self):
         rospy.Subscriber('/camera/color/image_raw', Image, self.color_callback, queue_size=1)
@@ -84,6 +94,24 @@ class AgentROS():
         reward = []
         done = []
 
+    def _init_home_and_limit(self):
+        rospy.wait_for_service('/agent_ros/srv/home_and_limit_range')
+        try:
+            home_limit_req = rospy.ServiceProxy('/agent_ros/srv/home_and_limit_range', msgs.srv.HomeAndLimit)
+            home2 = home_limit_req(KINOVA_HOME_XYZ, KINOVA_HOME_ORIENTATION, KINOVA_LIMIT)
+            return home2.done
+        except rospy.ServiceException, e:
+            print "Service call failed: %s" % e
+
+    def home_client(self):
+        rospy.wait_for_service('/agent_ros/srv/home')
+        try:
+            home_req = rospy.ServiceProxy('/agent_ros/srv/home', msgs.srv.Home)
+            home1 = home_req(1)
+            return home1.done
+        except rospy.ServiceException, e:
+            print "Service call failed: %s" % e
+
     rollout_observation_image = []
     rollout_observation_torque = []
     rollout_observation_pose = []
@@ -94,18 +122,19 @@ class AgentROS():
     rollout_reward = []
     rollout_done = []
     # rollout_observation_cmd = []
-    target_position = (0, -0.5, 0.4)
+    # target_position = (0, -0.5, 0.4)
     stat = []
     rollout_temp = RollOutData()
 
 
     def color_callback(self, color_data):
-        original_image = bridge.imgmsg_to_cv2(color_data, 'bgr8')
+        original_image = bridge.imgmsg_to_cv2(color_data, 'rgb8')
 
         # Crop a square out of the middle of the depth and resize it to 300*300
-        crop_size = 480
-        self.rollout_temp.image = cv2.resize(original_image[(480 - crop_size) // 2:(480 - crop_size) // 2 + crop_size,
-                                        (640 - crop_size) // 2:(640 - crop_size) // 2 + crop_size], (IMAGE_WIDTH, IMAGE_WIDTH))
+        # self.rollout_temp.image = cv2.resize(original_image[(480 - crop_size) // 2:(480 - crop_size) // 2 + crop_size,
+        #                                 (640 - crop_size) // 2:(640 - crop_size) // 2 + crop_size], (IMAGE_WIDTH, IMAGE_WIDTH))
+        self.rollout_temp.image = cv2.resize(original_image[0:CROP_SIZE,
+                                        (640 - CROP_SIZE) // 2:(640 - CROP_SIZE) // 2 + CROP_SIZE], (IMAGE_WIDTH, IMAGE_WIDTH))/255
         # print(type(self.rollout_temp.image))
 
     # def jointangle_callback(self, data):
@@ -163,27 +192,21 @@ class AgentROS():
         self.rollout_reward = []
         self.rollout_done = []
 
-    def reward(self, target_position, current_position):
-        pose_data = -np.square(np.array(target_position) - np.array(current_position))
-        reward = np.sum(pose_data)
-        print(reward)
-        return reward
+    def reward(self, obs, action):
+        pass
+        # pose_data = -np.square(np.array(target_position) - np.array(current_position))
+        # reward = np.sum(pose_data)
+        # print(reward)
+        # return reward
 
-    def home_client(self):
-        rospy.wait_for_service('/agent_ros/srv/home')
-        try:
-            home_req = rospy.ServiceProxy('/agent_ros/srv/home', msgs.srv.Home)
-            home1 = home_req(1)
-            return home1.done
-        except rospy.ServiceException, e:
-            print "Service call failed: %s"%e
+
 
     def reset(self):
         self.home_client()
         time.sleep(1)
         return self.observe()
 
-    def observe(self):
+    def observe_state(self):
         return self.rollout_temp.image.flatten()
 
     def get_state_dim(self):
@@ -193,19 +216,23 @@ class AgentROS():
         return 3
 
     def step(self,actions):
-        self.cmd_pub.publish(msgs.msg.ActionCommand(*actions))
-        return self.observe(), self.reward(self.target_position, self.rollout_temp.pose),False
+        pub_action = [K*i for i in actions]
+        self.cmd_pub.publish(msgs.msg.ActionCommand(*pub_action))
+        return self.observe_state(), self.reward(self.target_position, self.rollout_temp.pose),False
 
-    def rollout(self, num_horizon, init_std=1):
+    def policy(self, state):
+        pass
+
+    def rollout(self, num_horizon,policy, init_std=1):
         # if policy is None:
         #     def policy(_, t, noise=None):
         #         return np.random.normal(size=self.get_action_dim(), scale=init_std)
         r = rospy.Rate(10)
-        states, actions, costs = (
+        states, actions, costs, info = (
             np.zeros([num_horizon] + [self.get_state_dim()]),
             np.zeros([num_horizon] + [self.get_action_dim()]),
-            np.zeros([num_horizon])
-        )
+            np.zeros([num_horizon]),
+            [])
         infos = collections.defaultdict(list)
         current_state = self.reset()
         # print(current_state)
@@ -214,6 +241,7 @@ class AgentROS():
             actions[t] = policy(states[t])
             current_state, costs[t], done = self.step(actions[t])
             r.sleep()
+
             # for k, v in info.items():
             #     infos[k].append(v)
         # if self.currently_logging:
@@ -231,7 +259,9 @@ class AgentROS():
         #     self.episode_number += 1
         return states, actions, costs
 
-    def rollouts(self, num_rollouts, num_horizon):
+    def rollouts(self, num_rollouts, num_horizon, policy=None):
+        if policy is None:
+            policy = self.policy()
         states, actions, costs = (
             np.empty([num_rollouts, num_horizon] + [self.get_state_dim()]),
             np.empty([num_rollouts, num_horizon] + [self.get_action_dim()]),
@@ -241,7 +271,7 @@ class AgentROS():
         # rollouts = tqdm.trange(num_rollouts, desc='Rollouts') if show_progress else range(num_rollouts)
         for i in range(num_rollouts):
             states[i], actions[i], costs[i] = \
-            self.rollout(num_horizon)
+            self.rollout(num_horizon, policy)
         self.reset()
         return [states, actions, costs]
 
@@ -289,13 +319,23 @@ class IO(object):
         return data
 
 
-agent = AgentROS()
+agent = AgentROSbase()
 DIR1 = grandgrandparentdir
 DIR2 = str(rospy.get_time())
 DIR = DIR1+'/data/'+DIR2
 os.makedirs(DIR, mode=0o777)
 dataIO = IO(DIR + '/data.pkl')
-rollout = agent.rollouts(3,20)
+
+
+num_rollouts = 5
+horizon = 50
+
+t1 = time.time()
+rollout = agent.rollouts(num_rollouts,horizon)
+t2 = time.time()
+
+print(' time : ', t2- t1)
 dataIO.to_pickle(rollout)
 # agent.rollouts(3,20)
+
 time.sleep(20)
