@@ -1,15 +1,5 @@
-float32 home_x
-float32 home_y
-float32 home_z
-float32 home_oreintation_x
-float32 home_oreintation_y
-float32 home_oreintation_z
-float32 home_oreintation_w
-float32 limit_x_min
-float32 limit_x_max
-float32 limit_y_min
-float32 limit_y_max
-float32 limit_z_min
-float32 limit_z_max
+float64[3] home_xyz
+float64[4] home_oreintation
+float64[6] limit_range
 ---
 int8 done
