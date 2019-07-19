@@ -159,9 +159,24 @@ class AgentKinova():
         self.z_v = z_v
         # move_to_position(disp,[0.072, 0.6902, -0.7172, 0.064])
 
+    def check_speed(self):
+        if self.pose[0] > self.limit_xyz[1]:
+            self.x_v = -abs(self.x_v)
+        elif self.pose[0] < self.limit_xyz[0]:
+            self.x_v = abs(self.x_v)
+        if self.pose[1] > self.limit_xyz[3]:
+            self.y_v = -abs(self.y_v)
+        elif self.pose[1] < self.limit_xyz[2]:
+            self.y_v = abs(self.y_v)
+        if self.pose[2] > self.limit_xyz[5]:
+            self.z_v = -abs(self.z_v)
+        elif self.pose[2] < self.limit_xyz[4]:
+            self.z_v = abs(self.z_v)
+
     def __main__(self):
         while not rospy.is_shutdown():
             if self.MOVING:
+                self.check_speed()
                 CURRENT_VELOCITY = [self.x_v, self.y_v, self.z_v, 0, 0, 0]
                 self.velo_pub.publish(kinova_msgs.msg.PoseVelocity(*CURRENT_VELOCITY))
                 self.r.sleep()
