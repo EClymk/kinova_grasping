@@ -56,4 +56,11 @@ class CupAgentROS(AgentROSbase):
 
 cupAgent = CupAgentROS()
 print('set')
+DIR1 = grandgrandparentdir
+DIR2 = str(rospy.get_time())
+DIR = DIR1+'/data/'+DIR2
+os.makedirs(DIR, mode=0o777)
+dataIO = IO(DIR + '/cup_data.pkl')
+dataIO.to_pickle(cupAgent.rollouts(3, 30, cupAgent.policy))
 cupAgent.rollouts(3, 30, cupAgent.policy)
+

@@ -183,7 +183,12 @@ class AgentROSbase():
         return self.rollout_temp.image.flatten()
 
     def observe_info(self):
-        return {'image':self.rollout_temp.image.flatten(),}
+        return {'image': self.rollout_temp.image.flatten(),
+                'torqe': self.rollout_temp.torque,
+                'pose': self.rollout_temp.pose,
+                'orientation': self.rollout_temp.orientation,
+                'joint_angle': self.rollout_temp.joint_angle,
+                'joint_velocity': self.rollout_temp.joint_velocity}
 
     def get_state_dim(self):
         return STATE_DIM
