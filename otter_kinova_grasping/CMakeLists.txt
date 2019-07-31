@@ -9,6 +9,7 @@ project(otter_kinova_grasping)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
+  actionlib_msgs
   roscpp
   rospy
   std_msgs
