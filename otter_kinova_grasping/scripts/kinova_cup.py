@@ -5,8 +5,8 @@ import inspect
 # currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 # #print ("current_dir=" + currentdir)
 # os.sys.path.insert(0,currentdir)
-import rospy
-import tf.transformations as tft
+# import rospy
+# import tf.transformations as tft
 
 import numpy as np
 import abc
@@ -23,7 +23,7 @@ import msgs.msg
 import msgs.srv
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
-from kinova_agent_base import *
+from .kinova_agent_base import *
 
 # from otter_kinova_grasping.otter_kinova_grasping.scripts.helpers.gripper_action_client import set_finger_positions
 # from otter_kinova_grasping.otter_kinova_grasping.scripts.helpers.position_action_client import position_client, move_to_position
@@ -54,13 +54,14 @@ class CupAgentROS(AgentROSbase):
     def policy(self, state):
         return [0, -0.5, 0]
 
-cupAgent = CupAgentROS()
-print('set')
-DIR1 = grandgrandparentdir
-DIR2 = str(rospy.get_time())
-DIR = DIR1+'/data/'+DIR2
-os.makedirs(DIR, mode=0o777)
-dataIO = IO(DIR + '/cup_data.pkl')
-dataIO.to_pickle(cupAgent.rollouts(3, 30, cupAgent.policy))
-cupAgent.rollouts(3, 30, cupAgent.policy)
+if __name__ == '__main__':
+    cupAgent = CupAgentROS()
+    print('set')
+    DIR1 = grandgrandparentdir
+    DIR2 = str(rospy.get_time())
+    DIR = DIR1+'/data/'+DIR2
+    os.makedirs(DIR, mode=0o777)
+    dataIO = IO(DIR + '/cup_data.pkl')
+    dataIO.to_pickle(cupAgent.rollouts(3, 30, cupAgent.policy))
+    cupAgent.rollouts(3, 30, cupAgent.policy)
 

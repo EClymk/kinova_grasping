@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 import rospy
-import tf.transformations as tft
+# import tf.transformations as tft
 
 import numpy as np
 import abc
@@ -20,11 +20,11 @@ import cv2
 from cv_bridge import CvBridge, CvBridgeError
 
 
-from helpers.gripper_action_client import set_finger_positions
-from helpers.position_action_client import position_client, move_to_position
-from helpers.joints_action_client import joint_angle_client
-from helpers.covariance import generate_cartesian_covariance
-import kinova_angle_home
+# from .helpers.gripper_action_client import set_finger_positions
+# from .helpers.position_action_client import position_client, move_to_position
+# from .helpers.joints_action_client import joint_angle_client
+# from .helpers.covariance import generate_cartesian_covariance
+# import kinova_angle_home
 
 import os
 import time
@@ -103,8 +103,8 @@ class AgentROSbase():
             home_limit_req = rospy.ServiceProxy('/agent_ros/srv/home_and_limit_range', msgs.srv.HomeAndLimit)
             home2 = home_limit_req(KINOVA_HOME_XYZ, KINOVA_HOME_ORIENTATION, KINOVA_LIMIT)
             return home2.done
-        except rospy.ServiceException, e:
-            print "Service call failed: %s" % e
+        except rospy.ServiceException:
+            print("Service call failed: %s") # e
 
     def home_client(self):
         rospy.wait_for_service('/agent_ros/srv/home')
@@ -112,8 +112,8 @@ class AgentROSbase():
             home_req = rospy.ServiceProxy('/agent_ros/srv/home', msgs.srv.Home)
             home1 = home_req(1)
             return home1.done
-        except rospy.ServiceException, e:
-            print "Service call failed: %s" % e
+        except rospy.ServiceException:
+            print("Service call failed: %s")# % e)
 
     rollout_observation_image = []
     rollout_observation_torque = []
@@ -241,6 +241,8 @@ class AgentROSbase():
             self.rollout(num_horizon, policy)
         self.reset()
         return [states, actions, costs]
+
+
 
 
 class IO(object):
