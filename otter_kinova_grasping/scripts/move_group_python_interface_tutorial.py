@@ -200,7 +200,7 @@ class MoveGroupPythonIntefaceTutorial(object):
     pose_goal.orientation.w = 1.0
     pose_goal.position.x = -0.2
     pose_goal.position.y = -0.5
-    pose_goal.position.z = 0.6
+    pose_goal.position.z = 0.9
 
     move_group.set_pose_target(pose_goal)
 
@@ -233,10 +233,10 @@ class MoveGroupPythonIntefaceTutorial(object):
     ## We can plan a motion for this group to a desired pose for the
     ## end-effector:
     pose_goal = geometry_msgs.msg.Pose()
-    pose_goal.orientation.w = 1.0
+    pose_goal.orientation.w = -1.0
     pose_goal.position.x = 0.2
     pose_goal.position.y = -0.4
-    pose_goal.position.z = 0.4
+    pose_goal.position.z = 0.9
 
     move_group.set_pose_target(pose_goal)
 
@@ -452,7 +452,7 @@ class MoveGroupPythonIntefaceTutorial(object):
     box2_name = "box2"
     scene.add_box(box2_name, box2_pose, size=(1, 0.5, 0.35))
 
-    ## END_SUB_TUTORIAL
+    # END_SUB_TUTORIAL
     # Copy local variables back to class variables. In practice, you should use the class
     # variables directly unless you have a good reason not to.
     self.box_name=box_name
@@ -557,15 +557,15 @@ def main():
 
     # print "============ Press `Enter` to execute a movement using a pose goal ..."
     # raw_input()
-    # tutorial.go_to_pose_goal()
+    tutorial.go_to_pose_goal()
 
-    print "============ Press `Enter` to execute a movement using a pose goal ..."
+    # print "============ Press `Enter` to execute a movement using a pose goal ..."
     # raw_input()
     tutorial.go_to_pose_goal2()
 
-    print "============ Press `Enter` to plan and display a Cartesian path ..."
+    # print "============ Press `Enter` to plan and display a Cartesian path ..."
     # raw_input()
-    cartesian_plan, fraction = tutorial.plan_cartesian_path()
+    # cartesian_plan, fraction = tutorial.plan_cartesian_path()
 
     # print "============ Press `Enter` to display a saved trajectory (this will replay the Cartesian path)  ..."
     # raw_input()
@@ -573,7 +573,7 @@ def main():
 
     # print "============ Press `Enter` to execute a saved path ..."
     # raw_input()
-    tutorial.execute_plan(cartesian_plan)
+    # tutorial.execute_plan(cartesian_plan)
 
     print "============ Press `Enter` to add a box to the planning scene ..."
     raw_input()
