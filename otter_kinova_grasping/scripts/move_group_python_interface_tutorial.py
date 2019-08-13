@@ -138,6 +138,7 @@ class MoveGroupPythonIntefaceTutorial(object):
 
     # Misc variables
     self.box_name = ''
+    self.box2_name = ''
     self.robot = robot
     self.scene = scene
     self.move_group = move_group
@@ -204,7 +205,7 @@ class MoveGroupPythonIntefaceTutorial(object):
     move_group.set_pose_target(pose_goal)
 
     ## Now, we call the planner to compute the plan and execute it.
-    plan = move_group.go(wait=True)
+    plan = move_group.go(wait=False)
     # Calling `stop()` ensures that there is no residual movement
     move_group.stop()
     # It is always good to clear your targets after planning with poses.
@@ -240,7 +241,7 @@ class MoveGroupPythonIntefaceTutorial(object):
     move_group.set_pose_target(pose_goal)
 
     ## Now, we call the planner to compute the plan and execute it.
-    plan = move_group.go(wait=True)
+    plan = move_group.go(wait=False)
     # Calling `stop()` ensures that there is no residual movement
     move_group.stop()
     # It is always good to clear your targets after planning with poses.
@@ -274,43 +275,43 @@ class MoveGroupPythonIntefaceTutorial(object):
     waypoints = []
 
     wpose = move_group.get_current_pose().pose
-    # wpose.position.z -= scale * 0.1  # First move up (z)
-    # wpose.position.y += scale * 0.2  # and sideways (y)
-    # waypoints.append(copy.deepcopy(wpose))
-    #
-    # wpose.position.x += scale * 0.1  # Second move forward/backwards in (x)
-    # waypoints.append(copy.deepcopy(wpose))
-    #
-    # wpose.position.y -= scale * 0.1  # Third move sideways (y)
-    # waypoints.append(copy.deepcopy(wpose))
+    wpose.position.z -= scale * 0.1  # First move up (z)
+    wpose.position.y += scale * 0.2  # and sideways (y)
+    waypoints.append(copy.deepcopy(wpose))
 
-    wpose.orientation.w = 1.0  # Third move sideways (y)
+    wpose.position.x += scale * 0.1  # Second move forward/backwards in (x)
     waypoints.append(copy.deepcopy(wpose))
-    wpose.orientation.x = 0
-    wpose.orientation.y = 0.6
-    wpose.orientation.z = 0.8
-    wpose.orientation.w = 0.5  # Third move sideways (y)
+
+    wpose.position.y -= scale * 0.1  # Third move sideways (y)
     waypoints.append(copy.deepcopy(wpose))
-    wpose.orientation.x = 0
-    wpose.orientation.y = 0.6
-    wpose.orientation.z = 0.8
-    wpose.orientation.w = 0.5  # Third move sideways (y)
-    waypoints.append(copy.deepcopy(wpose))
-    wpose.orientation.x = 0
-    wpose.orientation.y = 0.6
-    wpose.orientation.z = 0.8
-    wpose.orientation.w = 0.7  # Third move sideways (y)
-    waypoints.append(copy.deepcopy(wpose))
-    wpose.orientation.x = 0
-    wpose.orientation.y = 0.6
-    wpose.orientation.z = 0.8
-    wpose.orientation.w = 0.9  # Third move sideways (y)
-    waypoints.append(copy.deepcopy(wpose))
-    wpose.orientation.x = 0.8
-    wpose.orientation.y = 0.6
-    wpose.orientation.z = 0
-    wpose.orientation.w = 0.8  # Third move sideways (y)
-    waypoints.append(copy.deepcopy(wpose))
+
+    # wpose.orientation.w = 1.0  # Third move sideways (y)
+    # waypoints.append(copy.deepcopy(wpose))
+    # wpose.orientation.x = 0
+    # wpose.orientation.y = 0.6
+    # wpose.orientation.z = 0.8
+    # wpose.orientation.w = 0.5  # Third move sideways (y)
+    # waypoints.append(copy.deepcopy(wpose))
+    # wpose.orientation.x = 0
+    # wpose.orientation.y = 0.6
+    # wpose.orientation.z = 0.8
+    # wpose.orientation.w = 0.5  # Third move sideways (y)
+    # waypoints.append(copy.deepcopy(wpose))
+    # wpose.orientation.x = 0
+    # wpose.orientation.y = 0.6
+    # wpose.orientation.z = 0.8
+    # wpose.orientation.w = 0.7  # Third move sideways (y)
+    # waypoints.append(copy.deepcopy(wpose))
+    # wpose.orientation.x = 0
+    # wpose.orientation.y = 0.6
+    # wpose.orientation.z = 0.8
+    # wpose.orientation.w = 0.9  # Third move sideways (y)
+    # waypoints.append(copy.deepcopy(wpose))
+    # wpose.orientation.x = 0.8
+    # wpose.orientation.y = 0.6
+    # wpose.orientation.z = 0
+    # wpose.orientation.w = 0.8  # Third move sideways (y)
+    # waypoints.append(copy.deepcopy(wpose))
 
 
 
@@ -442,17 +443,20 @@ class MoveGroupPythonIntefaceTutorial(object):
     box_name = "box"
     scene.add_box(box_name, box_pose, size=(0.1, 0.1, 0.1))
 
+    box2_name = self.box2_name
     box2_pose = geometry_msgs.msg.PoseStamped()
     box2_pose.header.frame_id = "j2s7s300_link_base"
     box2_pose.pose.orientation.w = 1.0
-    box2_pose.pose.position.y = -0.57 # slightly above the end effector
+    box2_pose.pose.position.y = -0.5 # slightly above the end effector
+    box2_pose.pose.position.z = 0.175  # slightly above the end effector
     box2_name = "box2"
-    scene.add_box(box2_name, box2_pose, size=(0.01, 0.5, 1))
+    scene.add_box(box2_name, box2_pose, size=(1, 0.5, 0.35))
 
     ## END_SUB_TUTORIAL
     # Copy local variables back to class variables. In practice, you should use the class
     # variables directly unless you have a good reason not to.
     self.box_name=box_name
+    self.box2_name=box2_name
     return self.wait_for_state_update(box_is_known=True, timeout=timeout)
 
 
@@ -519,6 +523,15 @@ class MoveGroupPythonIntefaceTutorial(object):
     ## We can remove the box from the world.
     scene.remove_world_object(box_name)
 
+    box2_name = self.box2_name
+
+    ## BEGIN_SUB_TUTORIAL remove_object
+    ##
+    ## Removing Objects from the Planning Scene
+    ## ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ## We can remove the box from the world.
+    scene.remove_world_object(box2_name)
+
     ## **Note:** The object must be detached before we can remove it from the world
     ## END_SUB_TUTORIAL
 
@@ -537,7 +550,7 @@ def main():
     print "============ Press `Enter` to begin the tutorial by setting up the moveit_commander ..."
     raw_input()
     tutorial = MoveGroupPythonIntefaceTutorial()
-
+    tutorial.add_box()
     #print "============ Press `Enter` to execute a movement using a joint state goal ..."
     #raw_input()
     #tutorial.go_to_joint_state()
@@ -547,24 +560,24 @@ def main():
     # tutorial.go_to_pose_goal()
 
     print "============ Press `Enter` to execute a movement using a pose goal ..."
-    raw_input()
+    # raw_input()
     tutorial.go_to_pose_goal2()
 
     print "============ Press `Enter` to plan and display a Cartesian path ..."
-    raw_input()
+    # raw_input()
     cartesian_plan, fraction = tutorial.plan_cartesian_path()
 
-    print "============ Press `Enter` to display a saved trajectory (this will replay the Cartesian path)  ..."
-    raw_input()
-    tutorial.display_trajectory(cartesian_plan)
+    # print "============ Press `Enter` to display a saved trajectory (this will replay the Cartesian path)  ..."
+    # raw_input()
+    # tutorial.display_trajectory(cartesian_plan)
 
-    print "============ Press `Enter` to execute a saved path ..."
-    raw_input()
+    # print "============ Press `Enter` to execute a saved path ..."
+    # raw_input()
     tutorial.execute_plan(cartesian_plan)
 
     print "============ Press `Enter` to add a box to the planning scene ..."
     raw_input()
-    tutorial.add_box()
+
 
     '''print "============ Press `Enter` to attach a Box to the kinova robot ..."
     raw_input()
